@@ -16,7 +16,7 @@ provider "aws" {
   region = var.aws_region
 }
 
-resource "aws_iam_role" "beanstalk_service" {
+resource "aws_iam_role" "beanstalk_service_role" {
     name = "beanstalk-service-role"
     assume_role_policy = <<EOF
 {
@@ -40,7 +40,7 @@ resource "aws_iam_role" "beanstalk_service" {
 EOF
 }
 
-resource "aws_iam_role" "beanstalk_ec2" {
+resource "aws_iam_role" "beanstalk_ec2_role" {
     name = "beanstalk-ec2-role"
     assume_role_policy = <<EOF
 {
@@ -59,52 +59,159 @@ resource "aws_iam_role" "beanstalk_ec2" {
 EOF
 }
 
-resource "aws_iam_instance_profile" "beanstalk_service" {
+resource "aws_iam_instance_profile" "beanstalk_service_profile" {
     name = "beanstalk-service-user"
-    role = aws_iam_role.beanstalk_service.name
+    role = aws_iam_role.beanstalk_service_role.name
 }
 
-resource "aws_iam_instance_profile" "beanstalk_ec2" {
+resource "aws_iam_instance_profile" "beanstalk_ec2_profile" {
     name = "beanstalk-ec2-user"
-    role = aws_iam_role.beanstalk_ec2.name
+    role = aws_iam_role.beanstalk_ec2_role.name
 }
 
 
-resource "aws_iam_policy_attachment" "beanstalk_service" {
+resource "aws_iam_policy_attachment" "beanstalk_service_common" {
     name = "elastic-beanstalk-service"
-    roles = [aws_iam_role.beanstalk_service.id]
+    roles = [aws_iam_role.beanstalk_service_role.id]
     policy_arn = "arn:aws:iam::aws:policy/service-role/AWSElasticBeanstalkService"
 }
 
 resource "aws_iam_policy_attachment" "beanstalk_service_health" {
     name = "elastic-beanstalk-service-health"
-    roles = [aws_iam_role.beanstalk_service.id]
+    roles = [aws_iam_role.beanstalk_service_role.id]
     policy_arn = "arn:aws:iam::aws:policy/service-role/AWSElasticBeanstalkEnhancedHealth"
 }
 
 resource "aws_iam_policy_attachment" "beanstalk_ec2_worker" {
     name = "elastic-beanstalk-ec2-worker"
-    roles = [aws_iam_role.beanstalk_ec2.id]
+    roles = [aws_iam_role.beanstalk_ec2_role.id]
     policy_arn = "arn:aws:iam::aws:policy/AWSElasticBeanstalkWorkerTier"
 }
 
 resource "aws_iam_policy_attachment" "beanstalk_ec2_web" {
     name = "elastic-beanstalk-ec2-web"
-    roles = [aws_iam_role.beanstalk_ec2.id]
+    roles = [aws_iam_role.beanstalk_ec2_role.id]
     policy_arn = "arn:aws:iam::aws:policy/AWSElasticBeanstalkWebTier"
 }
 
 resource "aws_iam_policy_attachment" "beanstalk_ec2_container" {
     name = "elastic-beanstalk-ec2-container"
-    roles = [aws_iam_role.beanstalk_ec2.id]
+    roles = [aws_iam_role.beanstalk_ec2_role.id]
     policy_arn = "arn:aws:iam::aws:policy/AWSElasticBeanstalkMulticontainerDocker"
 }
 
+#Load Balancer and Network Security groups
+resource "aws_security_group" "instance-sg" {
+  name = "tf-instance-security-group"
+  ingress {
+    from_port = 8080
+    to_port  = 8080
+    protocol = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    }
+}
+
+resource "aws_security_group" "alb-sg" {
+    name = "terraform-alb-security-group"
+    ingress {
+    from_port = 80
+    to_port = 80
+    protocol = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    }
+    
+    egress {
+    from_port = 0
+    to_port = 0
+    protocol = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+    }
+}
+
+resource "aws_lb" "alb" {
+    name = "terraform-alb"
+    load_balancer_type = "application"
+    subnets = data.aws_subnet_ids.default.ids
+    security_groups = [aws_security_group.alb.id]
+}
+
+
+resource "aws_lb" "test" {
+  name               = "test-lb-tf"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.lb_sg.id]
+  subnets            = aws_subnet.public.*.id
+
+  enable_deletion_protection = true
+
+  access_logs {
+    bucket  = aws_s3_bucket.lb_logs.bucket
+    prefix  = "test-lb"
+    enabled = true
+  }
+
+  tags = {
+    Environment = "production"
+  }
+}
+
+resource "aws_lb_listener" "http" {
+    load_balancer_arn = aws_lb.alb.arn
+    port = 80
+    protocol = "HTTP"
+
+# Страница 404 если будут запросы, которые не соответствуют никаким правилам прослушивателя
+    default_action {
+        type = "fixed-response"
+        fixed_response {
+        content_type = "text/plain"
+        message_body = "404: страница не найдена"
+        status_code = 404
+        }
+    }
+}
+
+resource "aws_lb_listener_rule" "asg-listener_rule" {
+    listener_arn    = aws_lb_listener.http.arn
+    priority        = 100
+    
+    condition {
+        field   = "path-pattern"
+        values  = ["*"]
+    }
+    
+    action {
+        type = "forward"
+        target_group_arn = aws_lb_target_group.asg-target-group.arn
+    }
+}
+
+resource "aws_lb_target_group" "asg-target-group" {
+    name = "terraform-asg-example"
+    port = var.server_port
+    protocol = "HTTP"
+    vpc_id = data.aws_vpc.default.id
+    health_check {
+        path = "/"
+        protocol = "HTTP"
+        matcher = "200"
+        interval = 15
+        timeout = 3
+        healthy_threshold = 2
+        unhealthy_threshold = 2
+    }
+}
+
+
+
+#Application and Environment
 
 resource "aws_elastic_beanstalk_application" "nodejs-webapp" {
   name        = var.service_name
   description = var.service_description
 }
+
 
 resource "aws_elastic_beanstalk_environment" "node-js-env" {
   name                = "nodejs-env"
@@ -168,13 +275,13 @@ resource "aws_elastic_beanstalk_environment" "node-js-env" {
   setting {
         namespace = "aws:elasticbeanstalk:environment"
         name      = "ServiceRole"
-        value     = aws_iam_instance_profile.beanstalk_service.name
+        value     = aws_iam_role.beanstalk_service_role.name
   }
 
   setting {
         namespace = "aws:autoscaling:launchconfiguration"
         name      = "IamInstanceProfile"
-        value     = aws_iam_instance_profile.beanstalk_ec2.name
+        value     = aws_iam_instance_profile.beanstalk_ec2_profile.name
   }  
 }
 
