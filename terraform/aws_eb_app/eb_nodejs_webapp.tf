@@ -11,6 +11,14 @@ variable "service_description" {
   type    = string
   default = "My Test WebApp"
 }
+variable "load_balancer_type" {
+  type    = string
+  default = "application"
+}
+variable "solution_stack" {
+  type    = string
+  default = "64bit Amazon Linux 2 v5.2.4 running Node.js 12"
+}
 
 provider "aws" {
   region = var.aws_region
@@ -100,110 +108,30 @@ resource "aws_iam_policy_attachment" "beanstalk_ec2_container" {
     policy_arn = "arn:aws:iam::aws:policy/AWSElasticBeanstalkMulticontainerDocker"
 }
 
-#Load Balancer and Network Security groups
-resource "aws_security_group" "instance-sg" {
-  name = "tf-instance-security-group"
-  ingress {
-    from_port = 8080
-    to_port  = 8080
-    protocol = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    }
-}
+#resource "aws_security_group" "alb-sg" {
+#    name = "${var.service_name}-nsg"
+#    ingress {
+#    from_port = 80
+#    to_port  = 80
+#    protocol = "tcp"
+#    cidr_blocks = ["0.0.0.0/0"]
+#    }
 
-resource "aws_security_group" "alb-sg" {
-    name = "terraform-alb-security-group"
-    ingress {
-    from_port = 80
-    to_port = 80
-    protocol = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    }
-    
-    egress {
-    from_port = 0
-    to_port = 0
-    protocol = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-    }
-}
+#    ingress {
+#    from_port = 443
+#    to_port  = 443
+#    protocol = "tcp"
+#    cidr_blocks = ["0.0.0.0/0"]
+#    description = "https"
+#    }
 
-resource "aws_lb" "alb" {
-    name = "terraform-alb"
-    load_balancer_type = "application"
-    subnets = data.aws_subnet_ids.default.ids
-    security_groups = [aws_security_group.alb.id]
-}
-
-
-resource "aws_lb" "test" {
-  name               = "test-lb-tf"
-  internal           = false
-  load_balancer_type = "application"
-  security_groups    = [aws_security_group.lb_sg.id]
-  subnets            = aws_subnet.public.*.id
-
-  enable_deletion_protection = true
-
-  access_logs {
-    bucket  = aws_s3_bucket.lb_logs.bucket
-    prefix  = "test-lb"
-    enabled = true
-  }
-
-  tags = {
-    Environment = "production"
-  }
-}
-
-resource "aws_lb_listener" "http" {
-    load_balancer_arn = aws_lb.alb.arn
-    port = 80
-    protocol = "HTTP"
-
-# Страница 404 если будут запросы, которые не соответствуют никаким правилам прослушивателя
-    default_action {
-        type = "fixed-response"
-        fixed_response {
-        content_type = "text/plain"
-        message_body = "404: страница не найдена"
-        status_code = 404
-        }
-    }
-}
-
-resource "aws_lb_listener_rule" "asg-listener_rule" {
-    listener_arn    = aws_lb_listener.http.arn
-    priority        = 100
-    
-    condition {
-        field   = "path-pattern"
-        values  = ["*"]
-    }
-    
-    action {
-        type = "forward"
-        target_group_arn = aws_lb_target_group.asg-target-group.arn
-    }
-}
-
-resource "aws_lb_target_group" "asg-target-group" {
-    name = "terraform-asg-example"
-    port = var.server_port
-    protocol = "HTTP"
-    vpc_id = data.aws_vpc.default.id
-    health_check {
-        path = "/"
-        protocol = "HTTP"
-        matcher = "200"
-        interval = 15
-        timeout = 3
-        healthy_threshold = 2
-        unhealthy_threshold = 2
-    }
-}
-
-
+#    egress {
+#    from_port = 0
+#    to_port = 0
+#    protocol = "-1"
+#    cidr_blocks = ["0.0.0.0/0"]
+#    }
+#}
 
 #Application and Environment
 
@@ -212,11 +140,28 @@ resource "aws_elastic_beanstalk_application" "nodejs-webapp" {
   description = var.service_description
 }
 
-
 resource "aws_elastic_beanstalk_environment" "node-js-env" {
   name                = "nodejs-env"
   application         = aws_elastic_beanstalk_application.nodejs-webapp.name
-  solution_stack_name = "64bit Amazon Linux 2 v5.2.4 running Node.js 12"
+  solution_stack_name = var.solution_stack
+
+  setting {
+    namespace = "aws:elasticbeanstalk:environment"
+    name = "LoadBalancerType"
+    value = var.load_balancer_type
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:environment"
+    name = "LoadBalancerIsShared"
+    value = "false"
+  }
+
+#  setting {
+#    namespace = "aws:elbv2:loadbalancer"
+#    name = "SecurityGroups"
+#    value = aws_security_group.alb-sg.id
+#  }
 
   setting {
     namespace = "aws:ec2:vpc"
@@ -271,6 +216,7 @@ resource "aws_elastic_beanstalk_environment" "node-js-env" {
     name = "MaxSize"
     value = "1"
   }
+
 
   setting {
         namespace = "aws:elasticbeanstalk:environment"
