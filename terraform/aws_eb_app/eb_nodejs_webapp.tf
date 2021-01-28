@@ -5,7 +5,7 @@ variable "aws_region" {
 }
 variable "service_name" {
   type    = string
-  default = "nodejs-app-test"
+  default = "syncit"
 }
 variable "service_description" {
   type    = string
@@ -19,10 +19,22 @@ variable "solution_stack" {
   type    = string
   default = "64bit Amazon Linux 2 v5.2.4 running Node.js 12"
 }
+variable "dns_domain" {
+  type    = string
+  default = "petrol-nt.net"
+}
+
+# pull in the dns zone
+data "aws_route53_zone" "dns_zone" {
+  name         = var.dns_domain
+}
+
+data "aws_elastic_beanstalk_hosted_zone" "current" {}
 
 provider "aws" {
   region = var.aws_region
 }
+
 
 resource "aws_iam_role" "beanstalk_service_role" {
     name = "beanstalk-service-role"
@@ -108,30 +120,18 @@ resource "aws_iam_policy_attachment" "beanstalk_ec2_container" {
     policy_arn = "arn:aws:iam::aws:policy/AWSElasticBeanstalkMulticontainerDocker"
 }
 
-#resource "aws_security_group" "alb-sg" {
-#    name = "${var.service_name}-nsg"
-#    ingress {
-#    from_port = 80
-#    to_port  = 80
-#    protocol = "tcp"
-#    cidr_blocks = ["0.0.0.0/0"]
-#    }
+#Creating certificate
+resource "aws_acm_certificate" "cert" {
+  domain_name       = format("%s%s%s", var.service_name, ".",  data.aws_route53_zone.dns_zone.name)
+  validation_method = "DNS"
+  tags = {
+    Name = format("%s%s", var.service_name, " Terraform managed certificate")
+  }
 
-#    ingress {
-#    from_port = 443
-#    to_port  = 443
-#    protocol = "tcp"
-#    cidr_blocks = ["0.0.0.0/0"]
-#    description = "https"
-#    }
-
-#    egress {
-#    from_port = 0
-#    to_port = 0
-#    protocol = "-1"
-#    cidr_blocks = ["0.0.0.0/0"]
-#    }
-#}
+  lifecycle {
+    create_before_destroy = true
+  }
+}
 
 #Application and Environment
 
@@ -140,8 +140,8 @@ resource "aws_elastic_beanstalk_application" "nodejs-webapp" {
   description = var.service_description
 }
 
-resource "aws_elastic_beanstalk_environment" "node-js-env" {
-  name                = "nodejs-env"
+resource "aws_elastic_beanstalk_environment" "eb-env" {
+  name                = var.service_name
   application         = aws_elastic_beanstalk_application.nodejs-webapp.name
   solution_stack_name = var.solution_stack
 
@@ -228,6 +228,27 @@ resource "aws_elastic_beanstalk_environment" "node-js-env" {
         namespace = "aws:autoscaling:launchconfiguration"
         name      = "IamInstanceProfile"
         value     = aws_iam_instance_profile.beanstalk_ec2_profile.name
-  }  
+  }
+
 }
 
+#DNS Alias
+resource "aws_route53_record" "dns_alias" {
+  zone_id = data.aws_route53_zone.dns_zone.zone_id
+  name    = format("%s%s%s", var.service_name, ".",  data.aws_route53_zone.dns_zone.name)
+  type    = "A"
+  alias {
+    name    = aws_elastic_beanstalk_environment.eb-env.cname
+    zone_id = data.aws_elastic_beanstalk_hosted_zone.current.id
+    evaluate_target_health = false
+  }
+
+  
+}
+
+
+
+output "resourse_dns_name" {
+    value = aws_route53_record.dns_alias.name
+    description = "Resourse FQDN"
+}
