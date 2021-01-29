@@ -133,6 +133,31 @@ resource "aws_acm_certificate" "cert" {
   }
 }
 
+resource "aws_route53_record" "dvo_record" {
+  for_each = {
+    for dvo in aws_acm_certificate.cert.domain_validation_options : dvo.domain_name => {
+      name    = dvo.resource_record_name
+      record  = dvo.resource_record_value
+      type    = dvo.resource_record_type
+      zone_id = data.aws_route53_zone.dns_zone.zone_id
+    }
+  }
+
+  allow_overwrite = true
+  name            = each.value.name
+  records         = [each.value.record]
+  ttl             = 60
+  type            = each.value.type
+  zone_id         = each.value.zone_id
+}
+
+resource "aws_acm_certificate_validation" "cert_val" {
+  certificate_arn         = aws_acm_certificate.cert.arn
+  validation_record_fqdns = [for record in aws_route53_record.dvo_record : record.fqdn]
+}
+
+########
+
 #Application and Environment
 
 resource "aws_elastic_beanstalk_application" "nodejs-webapp" {
@@ -155,6 +180,18 @@ resource "aws_elastic_beanstalk_environment" "eb-env" {
     namespace = "aws:elasticbeanstalk:environment"
     name = "LoadBalancerIsShared"
     value = "false"
+  }
+
+  setting {
+    namespace = "aws:elbv2:listener:default"
+    name      = "Protocol"
+    value     = "HTTPS"
+  }
+  
+  setting {
+    namespace = "aws:elbv2:listener:default"
+    name      = "SSLCertificateArns"
+    value     = aws_acm_certificate.cert.arn
   }
 
 #  setting {
@@ -242,9 +279,26 @@ resource "aws_route53_record" "dns_alias" {
     zone_id = data.aws_elastic_beanstalk_hosted_zone.current.id
     evaluate_target_health = false
   }
-
-  
 }
+
+#Configure Load balancer
+#data "aws_lb" "selected" {
+#  name = aws_elastic_beanstalk_environment.eb-env.load_balancers[0]
+#}
+
+#resource "aws_lb_listener" "https" {
+#  load_balancer_arn = data.aws_lb.selected.arn
+#  port              = "443"
+#  protocol          = "HTTPS"
+#  ssl_policy        = "ELBSecurityPolicy-2016-08"
+#  certificate_arn   = aws_acm_certificate.cert.arn
+
+#  default_action {
+#    type             = "forward"
+#    target_group_arn = data.aws_lb.selected.target_groups[0]
+#  }
+#}
+
 
 
 
