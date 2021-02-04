@@ -5,11 +5,15 @@ variable "aws_region" {
 }
 variable "service_name" {
   type    = string
-  default = "syncit"
+  default = "one"
+}
+variable "env_name" {
+  type    = string
+  default = "One-env"
 }
 variable "service_description" {
   type    = string
-  default = "My Test WebApp"
+  default = "One"
 }
 variable "load_balancer_type" {
   type    = string
@@ -166,7 +170,7 @@ resource "aws_elastic_beanstalk_application" "nodejs-webapp" {
 }
 
 resource "aws_elastic_beanstalk_environment" "eb-env" {
-  name                = var.service_name
+  name                = var.env_name
   application         = aws_elastic_beanstalk_application.nodejs-webapp.name
   solution_stack_name = var.solution_stack
 
