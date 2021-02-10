@@ -11,8 +11,13 @@ provider "aws" {
   region = var.aws_region
 }
 
+module "vpc" {
+  source = "../modules/aws_vpc"
+}
+
 module "redis" {
   source = "../modules/aws_redis"
+  
 }
 
 resource "aws_iam_role" "beanstalk_service_role" {
@@ -173,12 +178,6 @@ resource "aws_elastic_beanstalk_environment" "eb-env" {
     value     = aws_acm_certificate.cert.arn
   }
 
-#  setting {
-#    namespace = "aws:elbv2:loadbalancer"
-#    name = "SecurityGroups"
-#    value = aws_security_group.alb-sg.id
-#  }
-
   setting {
     namespace = "aws:ec2:vpc"
     name      = "VPCId"
@@ -210,12 +209,6 @@ resource "aws_elastic_beanstalk_environment" "eb-env" {
   }
 
   setting {
-    namespace = "aws:autoscaling:launchconfiguration"
-    name = "InstanceType"
-    value = var.app_instance_type
-  }
-
-  setting {
     namespace = "aws:autoscaling:asg"
     name = "Availability Zones"
     value = var.app_availability_zones
@@ -233,7 +226,6 @@ resource "aws_elastic_beanstalk_environment" "eb-env" {
     value = var.app_max_size
   }
 
-
   setting {
         namespace = "aws:elasticbeanstalk:environment"
         name      = "ServiceRole"
@@ -244,6 +236,18 @@ resource "aws_elastic_beanstalk_environment" "eb-env" {
         namespace = "aws:autoscaling:launchconfiguration"
         name      = "IamInstanceProfile"
         value     = aws_iam_instance_profile.beanstalk_ec2_profile.name
+  }
+
+  setting {
+    namespace = "aws:autoscaling:launchconfiguration"
+    name = "InstanceType"
+    value = var.app_instance_type
+  }
+
+  setting {
+    namespace = "aws:autoscaling:launchconfiguration"
+    name = "EC2KeyName"
+    value = var.ssh_key
   }
 
   setting {

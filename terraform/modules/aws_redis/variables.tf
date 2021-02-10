@@ -31,3 +31,7 @@ variable "tcp_port" {
   type        = number
   default     = 6379
 }
+variable "subnets" {
+  type = list
+  default = []
+}

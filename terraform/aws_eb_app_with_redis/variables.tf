@@ -51,3 +51,7 @@ variable "app_max_size" {
   type    = string
   default = "1"
 }
+variable "ssh_key" {
+  type    = string
+  default = "petrol_work"
+}
