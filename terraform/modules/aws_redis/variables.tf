@@ -25,13 +25,17 @@ variable "parameter_group" {
 }
 variable "engine_version" {
   type        = string
-  default     = "6.0.5"
+  default     = "6.x"
 }
 variable "tcp_port" {
   type        = number
   default     = 6379
 }
-variable "subnets" {
+variable "subnet_ids" {
   type = list
-  default = []
+  default = ["subnet-0438f922eff441e7d", "subnet-0ce8adcbc0bdf4e55"]
+}
+variable "vpc" {
+  type = string
+  default = "vpc-09b27bb15e0c63a29"
 }

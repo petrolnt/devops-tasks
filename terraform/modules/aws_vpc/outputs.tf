@@ -12,7 +12,7 @@ locals {
         for subnet in aws_subnet.protected_subnets:
         subnet.tags.Name => join(", ", [subnet.id])
     }
-    public_ids_list = values(local.public_ids_map)
+    public_ids_list = join("," , values(local.public_ids_map))
     protected_ids_list = values(local.protected_ids_map)
 }
 output "public_subnets" {

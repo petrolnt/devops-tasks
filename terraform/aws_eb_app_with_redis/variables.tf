@@ -55,3 +55,4 @@ variable "ssh_key" {
   type    = string
   default = "petrol_work"
 }
+

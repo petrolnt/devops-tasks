@@ -11,15 +11,121 @@ provider "aws" {
   region = var.aws_region
 }
 
+# VPC creation
 module "vpc" {
-  source = "../modules/aws_vpc"
+  source  = "terraform-aws-modules/vpc/aws"
+  version = "~> 2"
+
+  name = var.env_name
+  cidr = var.rds_vpc_cidr
+
+  azs              = ["${var.aws_region}a", "${var.aws_region}b", "${var.aws_region}c"]
+  public_subnets   = var.public_subnets
+  private_subnets  = var.private_subnets
+  database_subnets = var.database_subnets
+  create_database_subnet_group = var.create_db_subnet_group
+
+  tags = var.tags
 }
 
+# Redis creation
 module "redis" {
   source = "../modules/aws_redis"
-  subnet_ids = module.vpc.protected_subnets
+  subnet_ids = module.vpc.private_subnets
   vpc = module.vpc.vpc_id
 }
+
+# Database creation
+module "security_group" {
+  source  = "terraform-aws-modules/security-group/aws"
+  version = "~> 3"
+
+  name        = var.env_name
+  description = "${var.env_name} database security group"
+  vpc_id      = module.vpc.vpc_id
+
+  # ingress
+  ingress_with_cidr_blocks = [
+    {
+      from_port   = var.db_port
+      to_port     = var.db_port
+      protocol    = "tcp"
+      description = "PostgreSQL access from within VPC"
+      cidr_blocks = module.vpc.vpc_cidr_block
+    },
+  ]
+
+  tags = var.tags
+}
+
+################################################################################
+# RDS Module
+################################################################################
+
+module "db" {
+  source = "terraform-aws-modules/rds/aws"
+
+  identifier = var.env_name
+
+  # All available versions: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_PostgreSQL.html#PostgreSQL.Concepts
+  engine               = "postgres"
+  engine_version       = var.db_engine_version
+  family               = var.db_family
+  major_engine_version = var.db_major_engine_version
+  instance_class       = var.db_instance_class
+
+  allocated_storage     = var.db_allocated_storage
+  max_allocated_storage = var.db_max_allocated_storage
+  storage_encrypted     = var.db_storage_encrypted
+
+  # NOTE: Do NOT use 'user' as the value for 'username' as it throws:
+  # "Error creating DB Instance: InvalidParameterValue: MasterUsername
+  # user cannot be used as it is a reserved word used by the engine"
+  name     = "foundation"
+  username = var.db_username
+  password = var.db_password
+  port     = var.db_port
+
+  multi_az               = false
+  subnet_ids             = module.vpc.database_subnets
+  vpc_security_group_ids = [module.security_group.this_security_group_id]
+
+  maintenance_window              = "Mon:00:00-Mon:03:00"
+  backup_window                   = "03:00-06:00"
+  enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
+
+  backup_retention_period = var.db_backup_retention_period
+  skip_final_snapshot     = true
+  deletion_protection     = var.db_deletion_protection
+
+  #performance_insights_enabled          = true
+  #performance_insights_retention_period = 7
+  #create_monitoring_role                = true
+  #monitoring_interval                   = 60
+
+  parameters = [
+    {
+      name  = "autovacuum"
+      value = 1
+    },
+    {
+      name  = "client_encoding"
+      value = "utf8"
+    }
+  ]
+
+  tags = var.tags
+  db_option_group_tags = {
+    "Sensitive" = "low"
+  }
+  db_parameter_group_tags = {
+    "Sensitive" = "low"
+  }
+  db_subnet_group_tags = {
+    "Sensitive" = "high"
+  }
+}
+
 
 resource "aws_iam_role" "beanstalk_service_role" {
     name = "beanstalk-service-role"
@@ -145,15 +251,17 @@ resource "aws_acm_certificate_validation" "cert_val" {
 
 #Application and Environment
 
-resource "aws_elastic_beanstalk_application" "nodejs-webapp" {
+resource "aws_elastic_beanstalk_application" "webapp" {
   name        = var.service_name
   description = var.service_description
 }
 
 resource "aws_elastic_beanstalk_environment" "eb-env" {
   name                = var.env_name
-  application         = aws_elastic_beanstalk_application.nodejs-webapp.name
-  solution_stack_name = var.solution_stack
+  application         = aws_elastic_beanstalk_application.webapp.name
+  # Available solutions: aws elasticbeanstalk list-available-solution-stacks
+  #solution_stack_name = var.solution_stack
+  solution_stack_name = "64bit Amazon Linux 2018.03 v2.12.5 running Ruby 2.6 (Passenger Standalone)"
 
   setting {
     namespace = "aws:elasticbeanstalk:environment"
@@ -194,7 +302,7 @@ resource "aws_elastic_beanstalk_environment" "eb-env" {
   setting {
     namespace = "aws:ec2:vpc"
     name      = "Subnets"
-    value     = module.vpc.public_subnets
+    value     = join(",", module.vpc.public_subnets)
   }
 
   setting {
@@ -207,7 +315,7 @@ resource "aws_elastic_beanstalk_environment" "eb-env" {
     namespace = "aws:ec2:vpc"
     name = "ELBSubnets"
     #value = var.app_subnets
-    value = module.vpc.public_subnets
+    value     = join(",", module.vpc.public_subnets)
   }
 
   setting {
@@ -263,6 +371,24 @@ resource "aws_elastic_beanstalk_environment" "eb-env" {
     name = "REDIS_ENDPOINT"
     value = module.redis.node_address
   }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:application:environment"
+    name = "POSTGRESQL_HOST"
+    value = module.db.this_db_instance_endpoint
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:application:environment"
+    name = "POSTGRESQL_USERNAME"
+    value = module.db.this_db_instance_username
+    }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:application:environment"
+    name = "POSTGRESQL_PASSWORD"
+    value = module.db.this_db_instance_password
+    }
 
 }
 
