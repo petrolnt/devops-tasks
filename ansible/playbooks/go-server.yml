@@ -1,0 +1,14 @@
+# This role was designed for preparing golang server with mongodb, and for updating go application
+# For full configuration please use:
+# ansible-playbook go-server.yml -e '{"target":"your-server-ip","preconf":true}' --key-file "/root/.ssh/your_key_file.pem"
+# or
+# ansible-playbook go-server.yml -e '{"target":"your-server-ip","preconf":false}' --key-file "/root/.ssh/your_key_file.pem"
+# for update go project only
+---
+- name: Install golang and nginx
+  hosts: '{{target}}'
+
+  roles:
+    - { role: go-server, become: yes }
+
+

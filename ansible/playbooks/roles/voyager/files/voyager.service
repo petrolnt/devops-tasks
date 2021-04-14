@@ -1,0 +1,19 @@
+[Unit]
+Description=Voyager Service
+After=syslog.target postgresql.service
+
+[Service]
+Type=notify
+EnvironmentFile=/etc/environment
+NotifyAccess=all
+WorkingDirectory=/opt/voyager_2.0
+ExecStart=/usr/bin/java -jar web.jar
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=30s
+#StartLimitInterval=30min
+#StartLimitBurst=180
+#StartLimitAction=reboot
+
+[Install]
+WantedBy=multi-user.target

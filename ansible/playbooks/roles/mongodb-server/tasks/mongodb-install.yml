@@ -1,0 +1,33 @@
+---
+
+- name: Install pip
+  apt:
+    name: python-pip
+    state: present
+
+- name: Install apt-get key for MongoDB repository
+  apt_key:
+    keyserver: hkp://keyserver.ubuntu.com:80
+    id: 9DA31620334BD75D9DCB49F368818C72E52529D4
+    state: present
+
+- name: Add MongoDB repository
+  apt_repository:
+    repo: deb [arch=amd64] https://repo.mongodb.org/apt/ubuntu bionic/mongodb-org/4.0 multiverse
+    state: present
+
+- name: Install MongoDB database server
+  apt:
+    name: mongodb-org
+    state: present
+
+- name: Install the pymongo package
+  pip:
+    name: pymongo
+    state: present
+
+- name: Enabling and starting MongoDB service
+  systemd:
+    name: mongod
+    enabled: True
+    state: started

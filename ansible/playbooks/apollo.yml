@@ -1,0 +1,7 @@
+---
+- name: Install dependencies and update Raspbian
+  hosts: '{{target}}'
+
+  roles:
+    - role: apollo
+

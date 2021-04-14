@@ -1,0 +1,12 @@
+# This role was designed for deploing sensors as a DataflowService.service to Voyager server
+# Usage:
+# ansible-playbook deploy-dataflow.yml -e '{"target":"your-server-ip","asnible_ssh_user":username}' --key-file "/root/.ssh/your_key_file.pem"
+# or
+# ansible-playbook dataflow.yml -e '{"target":"your-server-ip","ansible_ssh_user":username}' --ask-pass 
+---
+  
+- name: Deploy DataflowService
+  hosts: '{{target}}'
+
+  roles:
+    - { role: deploy-dataflow, become: yes }

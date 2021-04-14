@@ -1,0 +1,16 @@
+---
+# defaults file for deploy-traces
+project_name: "tracer"
+service_name: "{{ project_name }}d"
+service_folder: "/opt/{{ project_name }}"
+service_user: "www-data"
+go_root: "/usr/local/go"
+devops_folder: "/home/{{ ansible_ssh_user }}/devops/{{ project_name }}"
+ssh_key: "{{ project_name }}_deploy"
+key_file: "/home/{{ ansible_ssh_user }}/.ssh/{{ ssh_key }}"
+project_repo: "git@github.com:growcer/tracer.git"
+health_url: "http://127.0.0.1/health"
+git_branch: "master"
+#retension policy
+min_releases: 5
+min_retention_age: 3d

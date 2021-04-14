@@ -1,0 +1,11 @@
+# This role was designed for install logstash server
+# Please use:
+# ansible-playbook logstash.yml -e '{"target":"your-server-ip"}' --key-file "/root/.ssh/your_key_file.pem"
+# or
+# ansible-playbook iptables.yml -e '{"target":"your-server-ip"}' --ask-vault-pass
+---
+- name: Install a Logstash server
+  hosts: '{{target}}'
+  
+  roles:
+    - { role: logstash-server, become: yes }

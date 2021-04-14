@@ -1,0 +1,81 @@
+---
+# tasks file for nginx_proxy_letsencrypt-install
+
+- name: 'Check mandatory variables are defined'
+  assert:
+    that:
+      - domain_name is defined
+      - application_url is defined
+      - application_name is defined
+      - letsencrypt_email is defined
+
+- name: Install nginx
+  apt:
+    name: nginx
+    state: latest
+
+- name: Install Letsencrypt
+  apt:
+    name: letsencrypt
+    state: latest
+
+- name: Disable default site nginx config
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+
+- name: Letsencrypt block
+  block:
+    - name: create letsencrypt directory
+      file: 
+        name: /var/www/letsencrypt
+        state: directory
+
+    - name: Install nginx site for letsencrypt requests
+      template:
+        src: templates/nginx-le.j2
+        dest: /etc/nginx/sites-enabled/http
+
+    - name: Reload nginx to activate letsencrypt site
+      service:
+        name: nginx
+        state: restarted
+
+    - name: Create letsencrypt certificate
+      shell: letsencrypt certonly -n --webroot -w /var/www/letsencrypt -m {{ letsencrypt_email }} --agree-tos -d {{ domain_name }}
+      args:
+        creates: /etc/letsencrypt/live/{{ domain_name }}
+
+    - name: Generate dhparams
+      shell: openssl dhparam -out /etc/nginx/dhparams.pem 2048
+      args:
+        creates: /etc/nginx/dhparams.pem
+  
+    - name: Upload site config
+      template:
+        src: app_config.j2
+        dest: "/etc/nginx/sites-available/{{ application_name }}.conf"
+
+    - name: Create config symlink
+      file:
+        src: "/etc/nginx/sites-available/{{ application_name }}.conf"
+        dest: "/etc/nginx/sites-enabled/{{ application_name }}.conf"
+        state: link
+
+    - name: Add letsencrypt cronjob for cert renewal
+      cron:
+        name: letsencrypt_renewal
+        special_time: weekly
+        job: letsencrypt --renew certonly -n --webroot -w /var/www/letsencrypt -m {{ letsencrypt_email }} --agree-tos -d {{ domain_name }} && service nginx reload
+  when: letsencrypt_config == True
+
+- name: Upload a main nginx config
+  template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/nginx.conf
+  
+- name: Reload nginx to activate specified site
+  service: 
+    name: nginx
+    state: restarted
+  

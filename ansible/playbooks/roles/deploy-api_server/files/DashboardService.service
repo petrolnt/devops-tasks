@@ -1,0 +1,18 @@
+[Unit]
+Description=DashboardService
+After=syslog.target
+
+
+[Service]
+Type=notify
+NotifyAccess=all
+WorkingDirectory=/opt/dashboard_app
+ExecStart=/usr/bin/java -jar api_server.jar
+SuccessExitStatus=143
+Restart=on-failure
+StartLimitInterval=5min
+StartLimitBurst=4
+#StartLimitAction=reboot
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,15 @@
+client
+dev tun
+proto udp
+remote 3.120.252.45 5194
+cipher AES-256-CBC
+resolv-retry infinite
+nobind
+persist-key
+persist-tun
+ca client/ca.crt
+cert client/{{ ansible_hostname }}.crt
+key client/{{ ansible_hostname }}.key
+remote-cert-tls server
+comp-lzo
+verb 3

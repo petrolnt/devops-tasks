@@ -1,0 +1,7 @@
+---
+# defaults file for sensors
+
+devops_folder: "/home/{{ ansible_ssh_user }}/devops"
+project_folder: "/opt/sensors/"
+#project_folder: "/opt/sensors"
+yoctolib_url: "http://www.yoctopuce.com/FR/downloads/YoctoLib.python.37304.zip"

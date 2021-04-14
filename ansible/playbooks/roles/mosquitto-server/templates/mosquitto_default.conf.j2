@@ -1,0 +1,18 @@
+# Config for Mosquitto
+listener {{ mosquitto_port }}
+
+allow_anonymous {{ mosquitto_allow_anonymous }}
+
+password_file {{ mosquitto_password_file }}
+
+# remove inactive client session in one hour
+persistent_client_expiration 1h
+
+# guarantee in-order delivery of messages
+max_inflight_messages 1
+
+# for storing to disk messages and subscriptions
+#persistence true
+
+#acl_file /etc/mosquitto/mosquitto-acl
+

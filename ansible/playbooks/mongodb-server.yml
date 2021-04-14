@@ -1,0 +1,14 @@
+# This role was designed for installation and preparing mongodb infrastructure
+# For configuration please use:
+# ansible-playbook mosquitto-server.yml -e '{"target":"your-server-ip", "ansible_ssh_user":"username"}' --ask-vault-pass --ask-pass
+# or
+# ansible-playbook mosquitto-server.yml -e '{"target":"your-server-ip", "ansible_ssh_user":"username"}' --ask-vault-pass --key-file
+---
+
+- name: Install and configure MongoDB cluster
+  hosts: '{{target}}'
+
+  roles:
+    - { role: mongodb-server, become: yes }
+
+

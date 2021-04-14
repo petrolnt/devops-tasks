@@ -1,0 +1,19 @@
+---
+# defaults file for deploy-voyager
+ssh_key: voyager_id_rsa
+key_file: "/home/{{ ansible_ssh_user }}/.ssh/voyager_id_rsa"
+service_name: voyager.service
+project_name: de.growcer.voyager
+service_folder: "/opt/voyager_2.0"
+git_branch: "master"
+gradle_build_command: "./gradlew :web:shadowJar"
+devops_folder: "/home/{{ ansible_ssh_user }}/devops"
+project_src_folder: "{{ devops_folder }}/voyager"
+project_folder: "{{ project_src_folder }}/root"
+project_output_folder: "{{ project_folder }}/build/output"
+
+host_key_checking: False
+
+#retension policy
+min_releases: 5
+min_retention_age: 3d

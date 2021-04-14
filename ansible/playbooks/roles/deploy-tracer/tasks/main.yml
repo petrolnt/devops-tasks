@@ -1,0 +1,197 @@
+---
+# tasks file for deploy-tracer
+#- name: Create user from application will start
+#  user:
+#    name: "{{ service_user }}"
+#    shell: /bin/false
+
+- name: Ensure .ssh directory exists
+  file: 
+    dest: '/home/{{ ansible_ssh_user }}/.ssh'
+    mode: 0700 
+    owner: '{{ ansible_ssh_user }}'
+    state: directory
+
+- name: Ensure if service folder is exists
+  stat: 
+    path: '{{ service_folder }}'
+  register: service_folder_status
+
+- name: Install ssh deployment key
+  copy: 
+    src: '{{ ssh_key }}'
+    dest: '{{ key_file }}'
+    mode: 0600
+    owner: '{{ ansible_ssh_user }}'
+    
+- name: Creating devops folder
+  file:
+    path: '{{ devops_folder }}'
+    state: directory
+  become: false
+
+- name: Pulling git sources to control host
+  git:
+    repo: '{{ project_repo }}'
+    dest: '{{ devops_folder }}'
+    version: '{{ git_branch }}'
+  become: false
+  register: sync_result
+
+- name: Create service for application
+  template:
+    src: "system.service.j2"
+    dest: "/lib/systemd/system/{{ service_name }}.service"
+  register: copy_service_res
+  
+- name: Reload systemd
+  systemd:
+    daemon_reload: true
+
+- name: Build project
+  shell:
+    cmd: '{{ go_root }}/bin/go  build'
+    chdir: '{{ devops_folder }}'
+  become: false
+
+- name: Updating service
+  block:
+    - name: Register current release path
+      stat:
+        path: '{{ service_folder }}'
+      register: old_symlink
+      when: service_folder_status is defined
+
+    - name: Define release building time
+      set_fact:
+        release_time: '{{ ansible_date_time.iso8601_basic_short }}'
+
+    - name: Copy environment file
+      template: 
+        src: tracer_environment.j2
+        dest: /etc/tracer_environment
+
+    - name: Define release folder
+      set_fact:
+        release_folder: '{{ service_folder }}_releases/{{ project_name }}_{{ release_time }}'
+
+    - name: Creating releases directory '{{ release_folder }}'
+      file: 
+        path: '{{ release_folder }}'
+        owner: '{{ service_user }}'
+        group: '{{ service_user }}'
+        state: directory
+
+    - name: Stopping service
+      systemd:
+        name: '{{ service_name }}'
+        state: stopped
+
+    - name: Remove old service folder symlink
+      file:
+        path: '{{ service_folder }}'
+        state: absent
+      when: service_folder_status is defined
+
+    - name: Copy new release folder
+      copy:
+        src: '{{ devops_folder }}/'
+        dest: '{{ release_folder }}'
+        owner: '{{ service_user }}'
+        group: '{{ service_user }}'
+        remote_src: yes
+
+    - name: Make main file executed
+      file:
+        path: '{{ release_folder }}/{{ project_name }}'
+        mode: '0755'
+
+    - name: Create a new release execution file link
+      file:
+        src: '{{ release_folder }}'
+        dest: '{{ service_folder }}'
+        owner: '{{ service_user }}'
+        group: '{{ service_user }}'
+        state: link
+
+    - name: Start service '{{ service_name }}'
+      systemd:
+        name: '{{ service_name }}'
+        state: started
+
+    - name: Waiting awhile service will be started
+      pause:
+        seconds: 10
+    
+    - name: Check service URL
+      uri: 
+        url: "{{ health_url }}"
+      register: result
+
+    - debug: msg="{{ result.status }}"
+
+  rescue:
+    - name: Remove service execution file symlink from broken release
+      file:
+        path: '{{ service_folder }}'
+        state: absent
+
+    - name: Restore service execution file from last success release
+      file:
+        src: '{{ old_symlink.stat.lnk_target }}'
+        dest: '{{ service_folder }}'
+        owner: '{{ service_user }}'
+        group: '{{ service_user }}'
+        state: link
+      
+    - name: Remove broken release folder
+      file:
+        path: '{{ release_folder }}'
+        state: absent
+
+    - name: Start service '{{ service_name }}'
+      systemd:
+        name: '{{ service_name }}'
+        state: started
+
+    - name: Waiting awhile service will be started
+      pause:
+        seconds: 10
+    
+    - name: Check service URL
+      uri: 
+        url: "{{ health_url }}"
+      register: result
+
+    - debug: msg="{{ result.status }}"
+  when: service_folder_status.stat.exists
+  
+
+- name: Applying retention policy
+  block:
+    - name: List of releases
+      find:
+        paths: '{{ service_folder }}_{{ project_name }}_releases'
+        file_type: directory
+        use_regex: yes
+        patterns:
+          - '^{{ project_name }}_[0-9]{8}T[0-9]{6}'
+      register: releases
+
+    - name: Search oldest releases to remove
+      find:
+        paths: '{{ service_folder }}_{{ project_name }}_releases'
+        file_type: directory
+        use_regex: yes
+        patterns:
+          - '^v{{ project_name }}_[0-9]{8}T[0-9]{6}'
+        age: '{{ min_retention_age }}'
+      register: releases_to_remove
+    
+    - name: Removing old releases
+      file:
+        path: '{{ item.path }}'
+        state: absent
+      with_items:
+        - '{{ releases_to_remove.files }}'
+      when: releases.matched > min_releases

@@ -1,0 +1,195 @@
+---
+# tasks file for rails-server
+
+- name: 'Check mandatory variables are defined'
+  assert:
+    that:
+      - domain_name is defined
+      - server_env is defined
+
+- name: Add deploy user
+  user:
+    name: deploy
+    shell: /bin/bash
+
+- name: Add SSH key to server for deploy user
+  authorized_key:
+    user: deploy
+    key: "{{ deploy_ssh_key }}"
+
+- name: Install apt-transport-https
+  apt:
+    name: apt-transport-https
+
+- name: Install ca-certificates
+  apt:
+    name: ca-certificates
+
+- name: Add Apt signing key, for Yarn repo
+  apt_key:
+    url: "{{ yarn_repo_key }}"
+    state: present
+
+- name: Add Apt signing key, for Passenger repo
+  apt_key:
+    keyserver: keyserver.ubuntu.com
+    id: 561F9B9CAC40B2F7
+    state: present
+
+# Add Yarn repository into sources list.
+- apt_repository:
+    repo: "{{ yarn_repo }}"
+    state: present
+
+- apt_repository:
+    repo: "{{ passenger_repo }}"
+    state: present
+    filename: passenger
+
+- name: Update apt cache
+  apt:
+    name: libnginx-mod-http-passenger
+    update_cache: yes
+
+- name: Upgrade all packages to the latest version
+  apt:
+    upgrade: dist
+
+- name: Install Ruby dependencies
+  apt:
+    name: "{{ ruby_dependencies }}"
+
+#- name: nvm
+#  become: yes
+#  become_user: deploy
+#  shell: curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
+#  args:
+#    chdir: /home/deploy
+#    creates: /home/deploy/.nvm/nvm.sh
+
+#- name: Download nvm install script
+#  become: yes
+#  become_user: deploy
+#  get_url:
+#    url: https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh
+#    dest: /home/deploy/nvm_install.sh
+#    mode: '0777'
+
+- name: Install nvm
+  become_user: "{{ deploy_user }}"
+  script: nvm_install.sh
+  args:
+    creates: "{{ home_dir }}/.nvm/nvm.sh"
+
+- name: Install Node
+  become_user: "{{ deploy_user }}"
+  shell: '. {{ home_dir }}/.nvm/nvm.sh && nvm install v12.6.0'
+  args:
+    creates: "{{ home_dir }}/.nvm/versions/node/v12.6.0"
+    chdir: "{{ home_dir }}"
+    executable: /bin/bash
+
+- name: Download ruby-install
+  become_user: "{{ deploy_user }}"
+  get_url:
+    url: "{{ ruby_install_url }}"
+    dest: "{{ home_dir }}/"
+
+- name: Extract ruby-install tarball
+  become_user: "{{ deploy_user }}"
+  unarchive:
+    src: "{{ home_dir }}/ruby-install-0.6.1.tar.gz"
+    dest: "{{ home_dir }}/"
+    creates: "{{ home_dir }}/ruby-install-0.6.1"
+    remote_src: yes
+  register: extract_res
+    
+- name: Install ruby-install
+  make:
+    chdir: "{{ home_dir }}/ruby-install-0.6.1"
+    target: install
+  when: extract_res
+
+- name: Install Ruby
+  become_user: "{{ deploy_user }}"
+  command: /usr/local/bin/ruby-install --no-install-deps ruby 2.5.0
+  args:
+    creates: "{{ home_dir }}/.rubies/ruby-2.5.0"
+
+- name: Download chruby
+  become: no
+  get_url:
+    url: "{{ chruby_url }}"
+    dest: "{{ home_dir }}/chruby-0.3.9.tar.gz"
+
+- name: Extract chruby tarball
+  become: no
+  unarchive:
+    src: "{{ home_dir }}/chruby-0.3.9.tar.gz"
+    dest: "{{ home_dir }}"
+    creates: "{{ home_dir }}/chruby-0.3.9"
+    remote_src: yes
+  register: chruby_extract_res
+    
+- name: Install chruby
+  make:
+    chdir: "{{ home_dir }}/chruby-0.3.9"
+    target: install
+
+- name: Load chruby for deploy user
+  lineinfile:
+    path: "{{ home_dir }}/.bashrc"
+    regexp: 'chruby.sh$'
+    line: 'source /usr/local/share/chruby/chruby.sh'
+    insertbefore: BOF
+
+- name: Set ruby version for deploy user
+  lineinfile:
+    path: "{{ home_dir }}/.profile"
+    regexp: '^chruby'
+    line: 'chruby ruby-2.5.0'
+
+- name: Install bundler
+  become_user: "{{ deploy_user }}"
+  command: 'chruby-exec ruby-2.5.0 -- gem install bundler'
+  args:
+    creates: "{{ home_dir }}/.gem/ruby/2.5.0/bin/bundle"
+  ignore_errors: yes
+
+- name: Create wwwroot/shared
+  file:
+    path: "{{ home_dir }}/wwwroot/shared"
+    state: directory
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: 0775
+  
+#- name: Copy production env file
+#  template:
+#    src: .env.production.j2
+#    dest: "{{ home_dir }}/wwwroot/shared/.env.production"
+
+- name: Copy env file
+  template:
+    src: .env.{{ server_env }}.j2
+    dest: "{{ home_dir }}/wwwroot/shared/.env.{{ server_env }}"
+  when: replace_env_file==True
+
+- name: Allow sudo for deploy
+  lineinfile:
+    path: /etc/sudoers
+    regexp: "^deploy"
+    line: "deploy ALL= NOPASSWD: /usr/bin/passenger-config"
+
+
+- name: gem update --system
+  become_user: "{{ deploy_user }}"
+  command: 'chruby-exec ruby-2.5.0 -- gem update --system'
+
+- name: Include tasks for install nginx
+  include_tasks: install-nginx.yml
+  when: with_nginx==True
+
+- name: Include tasks for install postgres
+  include_tasks: install-postgres.yml
+  when: with_postgres==True

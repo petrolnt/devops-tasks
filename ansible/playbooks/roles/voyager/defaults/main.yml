@@ -1,0 +1,29 @@
+---
+# defaults file for voyager
+
+#backports
+backports_distribution: "{{ansible_distribution_release}}"
+backports_uri: http://http.debian.net/debian
+backports_components: "{{backports_distribution}}-backports main contrib non-free"
+
+firstconf: false
+
+#gradle variables
+gradle_version: 4.10.3
+gradle_binary: "gradle-{{ gradle_version }}-all.zip"
+gradle_checksum: sha256:336b6898b491f6334502d8074a6b8c2d73ed83b92123106bd4bf837f04111043
+gradle_download: "/tmp/{{ gradle_binary }}"
+gradle_download_url: "https://services.gradle.org/distributions/{{ gradle_binary }}"
+gradle_base_dir: /opt
+gradle_extract_dir:  "gradle-{{ gradle_version }}"
+gradle_link: /usr/local/bin/gradle
+
+#Voyager project variables
+project_folder: /opt/voyager
+project_tmp_folder: "/home/{{ ansible_ssh_user }}/voyager"
+user_home: "/home/{{ ansible_ssh_user }}"
+service_name: voyager.service
+
+#Yarn mysql_variables
+yarn_repo: "deb https://dl.yarnpkg.com/debian/ stable main"
+yarn_public_key: "https://dl.yarnpkg.com/debian/pubkey.gpg"

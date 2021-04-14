@@ -1,0 +1,113 @@
+---
+# tasks file for sensors
+- name: Create devops folder
+  file:
+    path: '{{ devops_folder }}'
+    state: directory
+    mode: '0755'
+    
+
+- name: Create project folder
+  file:
+    path: '{{ project_folder }}'
+    state: directory
+    mode: '0755'
+  become: yes
+
+#- name: Install updates
+#  apt:
+#    update_cache: yes
+#    upgrade_cache: yes
+
+- name: Install git
+  apt:
+    name: git
+    state: present
+  become: yes
+
+- name: Install libusb
+  apt:
+    name: libusb-1.0-0
+    state: present
+  become: yes
+  
+- name: Install pip
+  apt:
+    name: python-pip
+    state: present
+  become: yes
+
+- name: Install paho-mqtt
+  pip:
+    name: paho-mqtt
+    state: present
+  become: yes
+
+#- name: Download YoctoLib library
+#  get_url:
+#    url: '{{ yoctolib_url }}'
+#    dest: '{{ devops_folder }}'
+#  register: download_res
+
+#- name: Create folder yoctolib
+#  file:
+#    path: '{{ devops_folder }}/yoctolib'
+#    state: directory
+
+#- name: Exptract yoctopuce library
+#  unarchive:
+#    src: '{{ download_res.dest }}'
+#    dest: '{{ devops_folder }}/yoctolib/'
+#    remote_src: yes
+  
+#- name: Copy yoctolib sources folder
+#  copy:
+#    src: '{{ devops_folder }}/yoctolib/Sources' 
+#    dest: '{{ project_folder }}/'
+#    remote_src: yes
+
+- name: Copy project archive
+  copy:
+    src: sensors.tar.gz
+    dest: '{{ devops_folder }}'
+
+- name: Extract project archive
+  unarchive:
+    src: '{{ devops_folder }}/sensors.tar.gz'
+    dest: '{{ devops_folder }}'
+    remote_src: yes
+
+- name: Copy project files to project folder
+  copy:
+    src: '{{ devops_folder }}/sensors'
+    dest: /opt
+    remote_src: yes
+  become: yes
+
+- name: Ensure if service unit is exists
+  stat:
+    path: '/etc/systemd/system/sensors.service'
+  register: service_status
+
+- name: Copy systemd item file
+  copy:
+    src: sensors.service
+    dest: /etc/systemd/system/sensors.service
+    owner: root
+    group: root
+  become: yes
+
+- name: Stopping service
+  systemd:
+    name: sensors.service
+    state: stopped
+  when: service_status.stat.exists
+  become: yes
+
+- name: Starting service
+  systemd:
+    name: sensors.service
+    state: started
+    enabled: yes
+  become: yes
+

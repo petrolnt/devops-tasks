@@ -1,0 +1,12 @@
+# This role was designed for preparing voyager server, and for updating voyager cotlin application
+# For full configuration please use:
+# ansible-playbook voyager.yml -e '{"target":"your-server-ip","ansible_ssh_user":"user"}' --ask-pass --ask-become-pass
+# or
+# ansible-playbook voyager.yml -e '{"target":"your-server-ip","ansible_ssh_user":"user"}' --key-file "/root/.ssh/your_key_file.pem"
+# for update voyager application only
+---
+- name: Install voyager server
+  hosts: '{{target}}'
+
+  roles:
+    - { role: voyager, become: yes }

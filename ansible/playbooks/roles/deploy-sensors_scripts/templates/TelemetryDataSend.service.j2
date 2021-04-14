@@ -1,0 +1,12 @@
+[Unit]
+Description=Sending telemetry to voyager
+After=multi-user.target
+
+[Service]
+Type=idle
+WorkingDirectory="{{ project_folder }}"
+ExecStart="/usr/bin/python {{ service_script }}"
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

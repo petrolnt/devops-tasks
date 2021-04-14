@@ -1,0 +1,9 @@
+# This role was designed for installation Grafana
+# For configuration please use:
+# ansible-playbook grafana-server.yml -e '{"target":"your-server-ip"}' --ask-vault-pass
+---
+- name: Install Grafana server
+  hosts: '{{target}}'
+
+  roles:
+    - { role: grafana-server, become: yes }

@@ -1,0 +1,42 @@
+---
+# Tasks file for install project dependencies
+
+- name: Add backports repository
+  apt_repository: repo='deb {{backports_uri}} {{backports_components}}' state=present update_cache=yes
+
+- name: Update and upgrade apt packages
+  apt:
+    upgrade: dist
+    update_cache: yes
+
+- name: Install OpenJDK
+  apt:
+    name: openjdk-11-jdk-headless
+    state: present
+
+- name: Install Git
+  apt:
+    name: git
+    state: present
+
+- name: Install snapd
+  apt:
+    name: snapd
+    state: present
+
+- name: Check is Kotlin installed
+  command: kotlinc -version
+  ignore_errors: yes
+  register: kotlin_check
+  environment:
+    PATH: /snap/bin:{{ ansible_env.PATH }}
+
+- name: Install Kotlin
+  shell: snap install --classic kotlin
+  when: kotlin_check is failed
+
+#- name: Create a project folder
+#  file:
+#    path: '{{ project_tmp_folder }}'
+#    state: directory
+#    mode: 0755

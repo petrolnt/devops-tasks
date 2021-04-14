@@ -1,0 +1,10 @@
+---
+# handlers file for apollo
+
+- name: restart nodered
+  systemd:
+    name: nodered
+    state: restarted
+  become: yes
+
+

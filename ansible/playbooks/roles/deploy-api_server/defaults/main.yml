@@ -1,0 +1,12 @@
+---
+# defaults file for deploy-api_server
+ssh_key: voyager_id_rsa
+key_file: "/home/{{ ansible_ssh_user }}/.ssh/voyager_id_rsa"
+service_name: DashboardService.service
+project_name: api_server
+service_folder: "/opt/dashboard_app"
+gradle_build_command: "./gradlew task fatJar"
+devops_folder: "/home/{{ ansible_ssh_user }}/devops"
+project_base_folder: "{{ devops_folder }}/voyager"
+project_folder: "{{ project_base_folder }}/{{ project_name }}"
+project_output_folder: "{{ project_folder }}/build/output"

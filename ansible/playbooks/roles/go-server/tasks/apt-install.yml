@@ -1,0 +1,29 @@
+---
+
+- name: Update and upgrade apt packages
+  apt:
+    upgrade: dist
+    update_cache: yes
+
+- name: Install nginx
+  apt:
+    name: nginx
+    state: present
+  notify: enable nginx
+
+- name: Copy nginx config
+  template:
+    src: nginx_default.j2
+    dest: /etc/nginx/sites-available/default
+  notify: restart nginx
+
+- name: Install pip
+  apt:
+    name: python-pip
+    state: present
+
+- name: Install git
+  apt:
+    name: git
+    state: present
+  

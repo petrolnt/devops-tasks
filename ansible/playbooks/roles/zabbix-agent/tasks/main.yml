@@ -1,0 +1,90 @@
+---
+# tasks file for zabbix-agent
+
+- name: 'Check mandatory variables are defined'
+  assert:
+    that:
+      - zabbix_server is defined
+      - tls_settings is defined
+      - host_name is defined
+
+- name: Install Zabbix repository key
+  apt_key:
+    url: https://repo.zabbix.com/zabbix-official-repo.key
+    state: present
+
+- name: Add apt repository for Ubuntu Bionic
+  apt_repository:
+    repo: "{{ bionic_ubuntu_repo }}"
+    filename: zabbix
+    update_cache: true
+  when: ansible_facts['distribution'] == "Ubuntu" and ansible_facts['distribution_major_version'] == "18"
+    
+
+- name: Add apt repository for Ubuntu Xenial
+  apt_repository:
+    repo: "{{ xenial_ubuntu_repo }}"
+    filename: zabbix
+    update_cache: true
+  when: ansible_facts['distribution'] == "Ubuntu" and ansible_facts['distribution_major_version'] == "16"
+    
+- name: Add apt repository for Debian Stretch
+  apt_repository:
+    repo: "{{ stretch_debian_repo }}"
+    filename: zabbix
+    update_cache: true
+  when: ansible_facts['distribution'] == "Debian" and ansible_facts['distribution_major_version'] == "9"
+    
+
+- name: Add apt repository for Debian Xenial
+  apt_repository:
+    repo: "{{ xenial_debian_repo }}"
+    filename: zabbix
+    update_cache: true
+  when: ansible_facts['distribution'] == "Debian" and ansible_facts['distribution_major_version'] == "8"
+    
+
+- name: Install Zabbix agent
+  apt:
+    name: zabbix-agent
+    state: present
+    update_cache: true
+
+- name: Copy Zabbix config
+  template:
+    src: zabbix_agentd.conf.j2
+    dest: /etc/zabbix/zabbix_agentd.conf
+  notify: Restart zabbix-agent
+  when: tls_settings == False
+
+
+- name: Create settings for using tls
+  block:
+  - name: Copy Zabbix config with TLS settings
+    template:
+      src: zabbix_agentd.conf_tls.j2
+      dest: /etc/zabbix/zabbix_agentd.conf
+    notify: Restart zabbix-agent
+
+  - name: Creating PSK file
+    file:
+      path: /etc/zabbix/zabbix.psk
+      owner: zabbix
+      group: zabbix
+      mode: 0600
+      state: touch
+
+  - name:
+    lineinfile:
+      path: /etc/zabbix/zabbix.psk
+      line: "{{ tls_psk_string }}"
+    notify: Restart zabbix-agent
+  
+  when: tls_settings == True
+
+
+- name: Ensure Zabbix-agent is started and enabled on boot
+  service:
+    name: zabbix-agent
+    state: started
+    enabled: true

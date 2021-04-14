@@ -1,0 +1,7 @@
+
+---
+- name: Install voyager server
+  hosts: '{{target}}'
+
+  roles:
+    - { role: nginx_proxy_letsencrypt-install, become: yes }

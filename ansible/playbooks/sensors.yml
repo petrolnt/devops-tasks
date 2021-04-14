@@ -1,0 +1,9 @@
+# This role was designed for preparing sensors server
+
+---
+  
+- name: Preparing sensors server
+  hosts: '{{target}}'
+
+  roles:
+    - { role: sensors }

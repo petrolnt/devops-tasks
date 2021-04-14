@@ -1,0 +1,218 @@
+---
+# tasks file for deploy-voyager
+
+- name: Creating devops folder
+  file:
+    path: '{{ devops_folder }}'
+    state: directory
+  become: false
+
+- name: Ensure .ssh directory exists
+  file: 
+    dest: '/home/{{ ansible_ssh_user }}/.ssh'
+    mode: 0700 
+    owner: '{{ ansible_ssh_user }}'
+    state: directory
+
+- name: Ensure that service folder exists
+  file: 
+    dest: '{{ service_folder }}'
+    owner: '{{ ansible_ssh_user }}'
+    group: '{{ ansible_ssh_user }}'
+    state: directory
+
+- name: Install ssh deployment key
+  copy: 
+    src: '{{ ssh_key }}'
+    dest: '{{ key_file }}'
+    mode: 0600
+    owner: '{{ ansible_ssh_user }}'
+  
+- name: Pulling git sources to control host
+  git:
+    repo: git@github.com:growcer/voyager.git
+    dest: '{{ project_src_folder }}'
+    key_file: '{{ key_file }}'
+    version: '{{ git_branch }}'
+    force: true
+  become: false
+  register: sync_result
+
+- name: Building project
+  block:
+  - name: Make '{{ project_folder }}/gradlew' executed
+    file:
+      path: '{{ project_folder }}/gradlew'
+      mode: 0755
+
+  - name: Building project in '{{ project_folder }}'
+    shell: '{{ gradle_build_command }}'
+    args:
+      chdir: '{{ project_folder }}'
+    become: false
+    register: build_result
+
+- name: Updating executable files
+  block:
+    - name: Register current release path
+      stat:
+        path: '{{ service_folder }}/web.jar'
+      register: old_symlink
+
+    - name: Ensure if service unit is exists
+      stat: path='/etc/systemd/system/{{ service_name }}'
+      register: service_status
+
+    - name: Register current service unit path
+      stat:
+        path: '/etc/systemd/system/voyager.service'
+      register: old_service_unit_symlink
+      when: service_status.stat.exists
+
+    - name: Stopping service
+      systemd:
+        name: '{{ service_name }}'
+        state: stopped
+      when: service_status.stat.exists
+
+    - name: Define release building time
+      set_fact:
+        release_time: '{{ ansible_date_time.iso8601_basic_short }}'
+
+    - name: Define release folder
+      set_fact:
+        release_folder: '{{ service_folder }}_releases/voyager_{{ release_time }}'
+  
+    - name: Creating release directory '{{ release_folder }}'
+      file: 
+        path: '{{ release_folder }}'
+        owner: '{{ ansible_ssh_user }}'
+        group: '{{ ansible_ssh_user }}'
+        state: directory
+    
+    - name: Remove old service execution file symlink
+      file:
+        path: '{{ service_folder }}/web.jar'
+        state: absent
+
+    - name: Remove old service unit file symlink
+      file:
+        path: '/etc/systemd/system/voyager.service'
+        state: absent
+
+    - name: Copy new service execution file
+      copy:
+        src: '{{ project_output_folder }}/web.jar'
+        dest: '{{ release_folder }}'
+        remote_src: yes
+      become: false
+
+    - name: Copy systemd service file
+      copy:
+        src: voyager.service
+        dest: '{{ release_folder }}'
+
+    - name: Create a new release execution file link
+      file:
+        src: '{{ release_folder }}/web.jar'
+        dest: '{{ service_folder }}/web.jar'
+        state: link
+      become: false
+
+    - name: Create a new release service unit file link
+      file:
+        src: '{{ release_folder }}/voyager.service'
+        dest: '/etc/systemd/system/voyager.service'
+        state: link
+
+    - name: Reload systemd
+      systemd:
+        daemon-reload: yes
+
+    - name: Start service '{{ service_name }}'
+      systemd:
+        name: '{{ service_name }}'
+        state: started
+
+    - name: Waiting awhile service will be started
+      pause:
+        seconds: 5
+
+    - name: Check service HTTP port
+      command: wget http://127.0.0.1:8086
+
+  when: build_result.changed
+  rescue:
+    - name: Remove service execution file symlink from broken release
+      file:
+        path: '{{ service_folder }}/web.jar'
+        state: absent
+    - name: Remove old service unit file symlink from broken release
+      file:
+        path: '/etc/systemd/system/voyager.service'
+        state: absent
+
+    - name: Restore service execution file from last success release
+      file:
+        src: '{{ old_symlink.stat.lnk_target }}'
+        dest: '{{ service_folder }}/web.jar'
+        state: link
+      become: false
+
+    - name: Restore service unit symlink from last success release
+      file:
+        src: '{{ old_service_unit_symlink.stat.lnk_target }}'
+        dest: '/etc/systemd/system/voyager.service'
+        state: link
+
+    - name: Reload systemd
+      systemd:
+        daemon-reload: yes
+
+    - name: Remove broken release folder
+      file:
+        path: '{{ release_folder }}'
+        state: absent
+      
+    
+    - name: Start service '{{ service_name }}'
+      systemd:
+        name: '{{ service_name }}'
+        state: started
+
+    - name: Waiting awhile service will be started
+      pause:
+        seconds: 5
+
+    - name: "Check service HTTP port"
+      command: wget http://127.0.0.1:8086
+
+- name: Applying retention policy
+  block:
+    - name: List of releases
+      find:
+        paths: '{{ service_folder }}_releases'
+        file_type: directory
+        use_regex: yes
+        patterns:
+          - '^voyager_[0-9]{8}T[0-9]{6}'
+      register: releases
+
+    - name: Search oldest releases to remove
+      find:
+        paths: '{{ service_folder }}_releases'
+        file_type: directory
+        use_regex: yes
+        patterns:
+          - '^voyager_[0-9]{8}T[0-9]{6}'
+        age: '{{ min_retention_age }}'
+      register: releases_to_remove
+    
+    - name: Removing old releases
+      file:
+        path: '{{ item.path }}'
+        state: absent
+      with_items:
+        - '{{ releases_to_remove.files }}'
+      when: releases.matched > min_releases
+

@@ -1,0 +1,7 @@
+---
+# tasks file for mongodb-server
+- name: Include tasks for install a MongoDB
+  include_tasks: mongodb-install.yml
+
+- name: Include tasks for configuring a MongoDB
+  include_tasks: configure-mongodb.yml

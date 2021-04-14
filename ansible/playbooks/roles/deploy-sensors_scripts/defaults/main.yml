@@ -1,0 +1,11 @@
+---
+# defaults file for deploy-sensors_scripts
+
+devops_folder: "/home/{{ ansible_ssh_user }}/devops"
+project_folder: "/home/pi/Desktop/scripts"
+#project_folder: "/opt/sensors"
+sensors_git_url: "git@github.com:growcer/sensors.git"
+ssh_key: "sensors_rsa"
+key_file: "/home/{{ ansible_ssh_user }}/.ssh/{{ ssh_key }}"
+service_script: "{{ project_folder }}/send_to_voyager.py"
+service_name: "TelemetryDataSend.service"

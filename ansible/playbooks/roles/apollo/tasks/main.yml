@@ -1,0 +1,153 @@
+---
+# tasks file for apollo
+- name: Install pip
+  apt:
+    name: python-pip
+    state: present
+    update_cache: yes
+  become: yes
+
+- name: Install a pyencrypt
+  pip: 
+    name: pyencrypt
+    state: present
+  become: yes
+
+- name: Install python-smbus
+  apt:
+    name: python-smbus
+    state: present
+
+- name: Checking bcm2835 library installation
+  stat:
+    path: /usr/local/include/bcm2835.h
+  register: stat_result
+
+- name: Installing bcm2835 library
+  block: 
+    - copy: src=bcm2835-1.57.tar.gz dest=/home/pi
+      register: copy_res
+
+    - unarchive:
+        src: /home/pi/bcm2835-1.57.tar.gz
+        dest: /home/pi
+        creates: /home/pi/bcm2835-1.57
+        remote_src: yes
+      when: copy_res is succeeded
+      register: untar_res
+
+    - shell: ./configure
+      args:
+        chdir: /home/pi/bcm2835-1.57
+      register: configure_res
+      become: yes
+      when: untar_res is succeeded
+
+    - shell: make && make install
+      args:
+        chdir: /home/pi/bcm2835-1.57
+      become: yes
+      when: configure_res is succeeded
+  when: stat_result.stat.exists == False
+
+- name: Updating a project files from Git
+  become: yes
+  git:
+    repo: git@github.com:growcer/apollo.git
+    dest: /etc/ansible/roles/apollo/files/apollo
+  run_once: True
+  delegate_to: localhost
+
+- name: Download updating script for node-red
+  get_url: 
+    url: https://raw.githubusercontent.com/node-red/raspbian-deb-package/master/resources/update-nodejs-and-nodered
+    dest: /home/pi/
+    mode: 0744
+ 
+- name: Install/Update node-red
+  shell: yes | ./update-nodejs-and-nodered
+  args:
+    chdir: /home/pi
+
+- name: Enable node-red
+  systemd:
+    name: nodered
+    enabled: yes
+    state: started
+  become: yes
+  
+- name: Copy project file
+  copy: src={{ item }} dest=/home/pi/.node-red/flows_{{ ansible_hostname }}.json
+  with_fileglob: apollo/node_red/flows.json
+  notify:
+  - restart nodered
+
+- name: Copy project dependencies file
+  copy: src=apollo/package.json dest=/home/pi/.node-red/
+
+- name: Copy python scripts
+  copy: src=apollo/python_scripts dest=/home/pi/.node-red/
+  
+- name: Install npm modules
+  npm:
+    path: /home/pi/.node-red
+    state: latest
+
+- name: Generating a vpn keys
+  shell: ./buildkey.sh {{ ansible_hostname }}
+  args:
+    chdir: /usr/share/easy-rsa
+    creates: /usr/share/easy-rsa/keys/{{ ansible_hostname }}.csr
+  delegate_to: localhost
+
+- name: Copying vpn key to openvpn keys directory
+  copy: src=/usr/share/easy-rsa/keys/{{ ansible_hostname }}.csr dest=/etc/openvpn/server/keys
+  become: yes
+  delegate_to: localhost
+
+- name: Copying vpn keys to host
+  copy: src=/usr/share/easy-rsa/keys/{{ item }} dest=/etc/openvpn/client
+  loop:
+    - "{{ ansible_hostname }}.crt"
+    - "{{ ansible_hostname }}.key"
+  register: result
+  become: yes
+
+- name: Writing new openvpn config
+  template: src=client.conf.j2 dest=/etc/openvpn/client.conf
+  when: result is succeeded
+  become: yes
+
+- name: Creating a client ip config file
+  command: ./create_ccd.py {{ ansible_hostname }} creates=/etc/openvpn/server/ccd/{{ ansible_hostname }}
+  args:
+    chdir: /usr/local/scripts
+  become: yes
+  delegate_to: localhost
+
+- name: Install Zabbix agent
+  apt:
+    name: zabbix-agent
+    state: present
+  become: yes
+
+- name: Copy Zabbix config
+  template: src=zabbix_agentd.conf.j2 dest=/etc/zabbix/zabbix_agentd.conf
+  become: yes
+
+- name: Copy environment string
+  uri:
+    url: https://prod.houston.growcer.com/api/ansible/raspberry_credentials?hostname={{ ansible_hostname }}
+    method: GET
+    headers:
+      password: "{{ env_password }}"
+    return_content: yes
+  register: env_string
+  delegate_to: localhost
+
+- name: Writing env_string
+  copy:
+    dest: /etc/env.dat
+    content: "{{ env_string.content }}"
+    force: yes
+  become: yes

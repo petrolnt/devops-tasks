@@ -1,0 +1,16 @@
+---
+# defaults file for deploy-voyager_dashboard
+devops_folder: "/home/{{ ansible_ssh_user }}/devops"
+dashboard_base_folder: "{{ devops_folder }}/voyager-dashboard"
+ssh_key: dashboard_rsa
+key_file: "/home/{{ ansible_ssh_user }}/.ssh/{{ ssh_key }}"
+work_folder: "/opt/voyager_2.0/dashboard"
+service_folder: "/opt/voyager_2.0"
+service_name: voyager.service
+git_branch: "master"
+
+host_key_checking: False
+
+#retension policy
+min_releases: 5
+min_retention_age: 3d

@@ -1,0 +1,54 @@
+---
+
+- name: Create user with administrator rights
+  mongodb_user:
+    database: admin
+    name: "{{ mongodb_admin }}"
+    password: "{{ mongodb_admin_password }}"
+    state: present
+    roles: root
+
+- name: Install openssl
+  apt:
+    name: openssl
+    state: present
+
+- name: Install python-pyOpenSSL
+  pip:
+    name: pyOpenSSL
+    state: present
+
+- name: Creating home directory for mongodb user
+  file:
+    path: /home/mongodb
+    state: directory
+    owner: mongodb
+    group: mongodb
+
+- name: Generate private SSL key for securing MongoDB connections
+  shell: openssl req -newkey rsa:2048 -new -batch -x509 -days 3650 -nodes -out {{ ansible_hostname }}.crt -keyout {{ ansible_hostname }}.key
+  args:
+    chdir: /home/mongodb
+
+- name: Creating MongoDB pem key
+  shell: cat {{ ansible_hostname }}.crt {{ ansible_hostname }}.key > {{ ansible_hostname }}.pem
+  args:
+    chdir: /home/mongodb
+
+- name: Chown to certificate and key files to mongodb user
+  file:
+    path: /home/mongodb/{{ ansible_hostname }}.pem
+    owner: mongodb
+    group: mongodb
+    mode: 0400
+
+
+- name: Copy MongoDB config template
+  template:
+    src: mongod.conf.j2
+    dest: /etc/mongod.conf
+
+- name: Restarting service mongod
+  systemd:
+    name: mongod
+    state: restarted

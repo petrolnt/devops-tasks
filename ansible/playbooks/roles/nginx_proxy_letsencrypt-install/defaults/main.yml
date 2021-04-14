@@ -1,0 +1,7 @@
+---
+# defaults file for nginx_proxy_letsencrypt-install
+domain_name: "traces-stage.growcer.com"
+application_url: "http://127.0.0.1:8085"
+application_name: "tracer"
+letsencrypt_email: "petrol@growcer.com"
+letsencrypt_config: True

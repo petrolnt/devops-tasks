@@ -1,0 +1,9 @@
+# This role was designed for installation of Postgresql 11 and TimescaleDB
+# For configuration please use:
+# ansible-playbook postgres-db.yml -e '{"target":"your-server-ip"}' --ask-vault-pass
+---
+- name: Install Postgres database server
+  hosts: '{{target}}'
+
+  roles:
+    - { role: postgres-db, become: yes }

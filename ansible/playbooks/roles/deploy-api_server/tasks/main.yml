@@ -1,0 +1,90 @@
+---
+# tasks file for deploy-api_server
+- name: Creating devops folder
+  file:
+    path: '{{ devops_folder }}'
+    state: directory
+  become: false
+  
+- name: Ensure .ssh directory exists.
+  file: 
+    dest: '/home/{{ ansible_ssh_user }}/.ssh'
+    mode: 0700 
+    owner: '{{ ansible_ssh_user }}'
+    state: directory
+
+- name: Install ssh deployment key
+  copy: 
+    src: '{{ ssh_key }}'
+    dest: '{{ key_file }}'
+    mode: 0600
+    owner: '{{ ansible_ssh_user }}'
+    
+- name: Pulling git sources with Java projects to control host
+  git:
+    repo: git@github.com:growcer/voyager.git
+    dest: '{{ project_base_folder }}'
+  become: false
+  register: sync_result
+
+- name: Building api_server.jar
+  block:
+
+  - debug:
+      msg: Building the project
+
+  - file:
+      path: '{{ project_folder }}/gradlew'
+      mode: 0755
+
+  - shell: "{{ gradle_build_command }}"
+    args:
+      chdir: '{{ project_folder }}'
+    register: build_result
+
+- name: Updating executable files
+  block:
+  - stat: 
+      path: '/etc/systemd/system/{{service_name}}'
+    register: service_status
+
+  - systemd:
+      name: '{{ service_name }}'
+      state: stopped
+    when: service_status.stat.exists
+
+  - file:
+      path: '{{ service_folder }}'
+      state: absent
+
+  - file:
+      path: '{{ service_folder }}'
+      state: directory
+
+  - command: 'find {{ project_output_folder }}/'
+    register: files_to_copy
+
+  - copy:
+      src: '{{ item }}' 
+      dest: '{{ service_folder }}'
+      remote_src: yes
+    with_items:
+      - '{{ files_to_copy.stdout_lines }}'
+
+  - copy:
+      src: '{{ service_name }}'
+      dest: '/etc/systemd/system/{{ service_name }}'
+    register: copyservice_result
+
+  - systemd:
+      daemon-reload: yes
+    when: copyservice_result.changed
+
+  - systemd:
+      name: '{{ service_name }}'
+      enabled: yes
+
+  - systemd:
+      name: '{{ service_name }}'
+      state: started
+  when: build_result is succeeded

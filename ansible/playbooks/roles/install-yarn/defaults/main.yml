@@ -1,0 +1,4 @@
+---
+# defaults file for install-yarn
+yarn_repo: "deb https://dl.yarnpkg.com/debian/ stable main"
+yarn_public_key: "https://dl.yarnpkg.com/debian/pubkey.gpg"

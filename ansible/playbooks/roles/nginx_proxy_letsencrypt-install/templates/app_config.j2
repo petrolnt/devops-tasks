@@ -1,0 +1,69 @@
+
+server {
+  listen 80;
+  server_name {{ domain_name }}; 
+  return 301 https://{{ domain_name }}$request_uri;
+}
+
+server {
+    server_name {{ domain_name }};
+    listen 0.0.0.0:443 ssl; # default_server;
+
+    ssl_certificate /etc/letsencrypt/live/{{ domain_name }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ domain_name }}/privkey.pem;
+    ssl_trusted_certificate /etc/letsencrypt/live/{{ domain_name }}/chain.pem;
+
+    ssl_stapling on;
+    ssl_stapling_verify on;
+    ssl_ciphers "ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA:ECDHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA256:DHE-RSA-AES128-SHA256:DHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA:ECDHE-RSA-DES-CBC3-SHA:EDH-RSA-DES-CBC3-SHA:AES256-GCM-SHA384:AES128-GCM-SHA256:AES256-SHA256:AES128-SHA256:AES256-SHA:AES128-SHA:DES-CBC3-SHA:HIGH:!aNULL:!eNULL:!EXPORT:!DES:!MD5:!PSK:!RC4";
+    ssl_dhparam /etc/nginx/dhparams.pem;
+
+    root /home/deploy/wwwroot/current/public;
+
+    # Allow connection to own domain only
+    if ($host !~ ^({{ domain_name }}|www.{{ domain_name }})$ ) {
+        return 444;
+    }
+
+	# Allowed request methods
+	if ($request_method !~ ^(GET|HEAD|POST|PATCH)$ ) {
+		return 444;
+	}
+
+	# Disable download managers
+	if ($http_user_agent ~* LWP::Simple|BBBike|wget) {
+		return 403;
+	}
+
+	# Disable bots
+	if ($http_user_agent ~* msnbot|scrapbot) {
+		return 403;
+	}
+
+    add_header Strict-Transport-Security "max-age=31536000";
+
+    add_header Content-Security-Policy "img-src https: data:; upgrade-insecure-requests";
+    
+    location ~ /\. {
+      deny all;
+    }
+
+location / {
+	
+	proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_pass "{{ application_url }}/";
+    }
+    
+    # cat /etc/nginx/acme 
+    location /.well-known {
+        root /usr/share/nginx/html;
+        }
+
+    
+}

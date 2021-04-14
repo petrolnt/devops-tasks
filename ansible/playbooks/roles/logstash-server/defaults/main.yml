@@ -1,0 +1,8 @@
+---
+# defaults file for logstash-server
+
+logstash_version: '6.x'
+
+# logstash jvm options
+initial_heap_space: "-Xms256m"
+maximum_heap_space: "-Xms256m"

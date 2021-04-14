@@ -1,0 +1,7 @@
+
+---
+- name: Install voyager server
+  hosts: '{{target}}'
+
+  roles:
+    - { role: deploy-voyager, become: yes }

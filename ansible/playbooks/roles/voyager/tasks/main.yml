@@ -1,0 +1,13 @@
+---
+# tasks file for voyager
+
+- name: Include tasks for install project dependencies
+  include_tasks: install-deps.yml
+  
+
+- name: Include tasks for install gradle
+  include_tasks: install-gradle.yml
+  
+
+- name: Include tasks for updating and building project
+  include_tasks: install-yarn-node.yml

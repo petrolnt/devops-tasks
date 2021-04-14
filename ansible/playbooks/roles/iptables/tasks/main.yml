@@ -1,0 +1,92 @@
+---
+# tasks file for iptables
+
+- name: Update and upgrade apt packages
+  apt:
+    upgrade: dist
+    update_cache: yes
+
+- name: Install iptables-persistent
+  apt:
+    name: netfilter-persistent
+    state: present
+
+- name: Set the policy for the INPUT chain to ACCEPT
+  iptables:
+    chain: INPUT
+    policy: ACCEPT
+
+- name: Flush rules
+  command: iptables -F
+
+- name: Allow related and established connections
+  iptables:
+    chain: INPUT
+    ctstate: ESTABLISHED,RELATED
+    jump: ACCEPT
+
+- name: Allow ICMP
+  iptables:
+    chain: INPUT
+    ctstate: NEW
+    protocol: icmp
+    icmp_type: 8
+    jump: ACCEPT
+
+- name: Allow local traffic
+  iptables:
+    chain: INPUT
+    in_interface: lo
+    jump: ACCEPT
+
+- name: Allow new incoming SSH
+  iptables:
+    chain: INPUT
+    protocol: tcp
+    destination_port: 22
+    ctstate: NEW
+    jump: ACCEPT
+
+- name: Allow common incoming tcp ports
+  iptables:
+    chain: INPUT
+    protocol: tcp
+    destination_port: "{{ item }}"
+    ctstate: NEW
+    jump: ACCEPT
+  with_items: "{{ allowed_tcp_ports }}"
+
+- name: Allow common incoming udp ports
+  iptables:
+    chain: INPUT
+    protocol: udp
+    destination_port: "{{ item }}"
+    ctstate: NEW
+    jump: ACCEPT
+  with_items: "{{ allowed_udp_ports }}"
+
+- name: Set the default policy for the INPUT chain
+  iptables:
+    chain: INPUT
+    policy: "{{ input_policy }}"
+  async: 10
+  poll: 0
+
+- name: Wait 5 seconds for new connection
+  wait_for_connection:
+    delay: 5
+    timeout: 20
+
+- name: Set the policy for the FORWARD chain to DROP
+  iptables:
+    chain: FORWARD
+    policy: "{{ forward_policy }}"
+
+- name: Set the policy for the OUTPUT chain to DROP
+  iptables:
+    chain: OUTPUT
+    policy: "{{ output_policy }}"
+
+- name: Save rules
+  command:
+    netfilter-persistent save

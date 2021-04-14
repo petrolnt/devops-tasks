@@ -1,0 +1,12 @@
+# This role was designed for deploing sensors scripts to RPI
+# Usage:
+# ansible-playbook deploy-sensors_scripts.yml -e '{"target":"your-server-ip","asnible_ssh_user":username}' --key-file "/root/.ssh/your_key_file.pem"
+# or
+# ansible-playbook deploy-sensors_scripts.yml -e '{"target":"your-server-ip","ansible_ssh_user":username}' --ask-pass 
+---
+  
+- name: Deploy DataflowService
+  hosts: '{{target}}'
+
+  roles:
+    - { role: deploy-sensors_scripts }

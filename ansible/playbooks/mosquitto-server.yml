@@ -1,0 +1,10 @@
+# This role was designed for preparing Mosquitto broker
+# Please use:
+# ansible-playbook mosquitto-server.yml -e '{"target":"your-server-ip"}' --key-file "/root/.ssh/your_key_file.pem"
+---
+- name: Install Mosquitto broker
+  hosts: '{{target}}'
+  become: true
+
+  roles:
+    - { role: mosquitto-server, become: yes }

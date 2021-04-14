@@ -1,0 +1,66 @@
+---
+# tasks file for deploy-sensors_scripts
+
+- name: Ensure .ssh directory exists.
+  file: 
+    dest: '/home/{{ ansible_ssh_user }}/.ssh'
+    mode: 0700 
+    owner: '{{ ansible_ssh_user }}'
+    state: directory
+
+- name: Install ssh deployment key
+  copy: 
+    src: '{{ ssh_key }}'
+    dest: '{{ key_file }}'
+    mode: 0600
+    owner: '{{ ansible_ssh_user }}'
+    
+- name: Pulling git sources
+  git:
+    repo: '{{ sensors_git_url }}'
+    dest: '{{ devops_folder }}/sensors'
+    key_file: '{{ key_file }}'
+  register: sync_result
+
+- name: Updating project
+  block:
+  - debug:
+      msg: Updating project
+
+  - stat: 
+      path: '/etc/systemd/system/{{ service_name }}'
+    become: yes
+    register: service_status
+
+  - systemd:
+      name: '{{ service_name }}'
+      state: stopped
+    become: yes
+    when: service_status.stat.exists
+
+  - template:
+      src: '{{ service_name }}.j2'
+      dest: '/etc/systemd/system/{{ service_name }}'
+    become: yes
+    register: copyservice_result
+
+  - systemd:
+      daemon-reload: yes
+    become: yes
+    when: copyservice_result.changed
+
+  - copy:
+      src: '{{ devops_folder }}/sensors/'
+      dest: '{{ project_folder }}'
+      owner: root
+      mode: 600
+      remote_src: yes
+    become: yes
+  
+  - systemd:
+      name: '{{ service_name }}'
+      enabled: yes
+      state: restarted
+    become: yes
+
+#  when: sync_result.changed

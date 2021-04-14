@@ -1,0 +1,12 @@
+# This role was designed for deploing voyager-dashboard for a DataflowService.service on Voyager server
+# Usage:
+# ansible-playbook deploy-voyager_dashboard.yml -e '{"target":"your-server-ip","asnible_ssh_user":username}' --key-file "/root/.ssh/your_key_file.pem" --ask-vault-pass
+# or
+# ansible-playbook dataflow.yml -e '{"target":"your-server-ip","ansible_ssh_user":username}' --ask-pass --ask-vault-pass
+---
+  
+- name: Deploy voyager-dashboard
+  hosts: '{{target}}'
+
+  roles:
+          - { role: deploy-voyager_dashboard, become: yes }

@@ -1,0 +1,57 @@
+---
+# Tasks for install Mosquitto brokker
+
+#- name: Update and upgrade apt packages
+#  apt:
+#    upgrade: dist
+#    update_cache: yes
+
+#- name: Install mc
+#  apt:
+#    name: mc
+#    state: present
+
+- name: Install Mosquitto server and client packages
+  package:
+    name: "{{ item }}"
+    state: present
+  with_items: "{{ mosquitto_packages }}"
+
+- name: Check is there Mosquitto password file
+  stat:
+    path: "{{ mosquitto_password_file }}"
+  register: mosquitto_passwd_check
+
+- name: Create Mosquitto password file
+  file:
+    path: "{{ mosquitto_password_file }}"
+    owner: root
+    group: mosquitto
+    mode: 0640
+    state: touch
+  when: not mosquitto_passwd_check.stat.exists
+
+- name: Add Mosquitto users
+  command:
+    mosquitto_passwd -b "{{ mosquitto_password_file }}" "{{ item.name }}" "{{ item.password }}"
+  with_items: "{{ mosquitto_auth_users }}"
+  no_log: true
+  notify: Restart Mosquitto
+
+- name: Copy Mosquitto config
+  template:
+    src: mosquitto_default.conf.j2
+    dest: /etc/mosquitto/conf.d/default.conf
+  notify: Restart Mosquitto
+
+- name: Copy Mosquitto acl
+  template:
+    src: mosquitto-acl.j2
+    dest: /etc/mosquitto/mosquitto-acl
+  notify: Restart Mosquitto
+
+- name: Enable and start Mosquitto service
+  service:
+    name: mosquitto
+    state: started
+    enabled: true

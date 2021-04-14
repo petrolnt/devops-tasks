@@ -1,0 +1,60 @@
+---
+
+- name: Import the Postgres repository signing key
+  apt_key:
+    url: "{{ postgres_repo_key }}"
+
+- name: Add a Postgres repository
+  apt_repository:
+    repo: "{{ postgres_repo }}"
+    filename: pgdg
+
+- name: Installing PostgreSQL 11
+  apt:
+    name: "{{ postgres_release }}"
+    update_cache: yes
+
+- name: Install python-pip
+  apt:
+    name: python-pip
+    state: present
+
+- name: Install psycopg2 module
+  pip:
+    name: psycopg2
+    state: present
+
+- name: Copy pg_hba.conf
+  copy:
+    src: pg_hba.conf
+    dest: /etc/postgresql/11/main/pg_hba.conf
+    owner: postgres
+    group: postgres
+    mode: 0640
+  notify: Restart Postresql server
+
+- name: Copy postgresql.conf
+  copy:
+    src: postgresql.conf
+    dest: /etc/postgresql/11/main/postgresql.conf
+    owner: postgres
+    group: postgres
+    mode: 0644
+  notify: Restart Postresql server
+
+- name: Install libpq-dev
+  apt:
+    name: libpq-dev
+    state: present
+
+- name: Create configurator-db database
+  postgresql_db:
+    name: "{{ db_name }}"
+    state: present
+
+- name: Create a database user
+  postgresql_user:
+    name: "{{ db_user }}"
+    password: "{{ prod_db_user_password }}"
+    priv: ALL
+    db: "{{ db_name}}"

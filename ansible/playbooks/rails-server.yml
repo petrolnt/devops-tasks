@@ -1,0 +1,8 @@
+# This role was designed for preparing Configurator rails server with nodejs dependensies
+# Please use:
+# ansible-playbook rails-server.yml -e '{"target":"your-server-ip", "domain_name":"your.domain.name"}' --key-file "/root/.ssh/your_key_file.pem" --ask-vault-pass
+---
+- name: Install Rails server
+  hosts: '{{target}}'
+  roles:
+    - { role: rails-server, become: yes }

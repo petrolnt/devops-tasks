@@ -1,0 +1,12 @@
+---
+# defaults file for zabbix-agent
+
+#zabbix_server: 10.0.0.50
+#tls_settings: false
+#host_name: 
+zabbix_repo_key: "https://repo.zabbix.com/zabbix-official-repo.key"
+jessie_debian_repo: "deb http://repo.zabbix.com/zabbix/4.2/debian jessie main"
+stretch_debian_repo: "deb http://repo.zabbix.com/zabbix/4.2/debian stretch main"
+bionic_ubuntu_repo: "deb http://repo.zabbix.com/zabbix/4.2/ubuntu bionic main"
+xenial_ubuntu_repo: "deb http://repo.zabbix.com/zabbix/4.2/ubuntu xenial main"
+buster_debian_repo: "deb http://repo.zabbix.com/zabbix/4.2/debian buster main"

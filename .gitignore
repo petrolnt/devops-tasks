@@ -2,3 +2,7 @@
 *.tfstate*
 *__pycache__*
 *.lock.hcl
+*.retry
+*.out
+*.backup
+

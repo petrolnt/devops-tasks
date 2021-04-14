@@ -1,0 +1,74 @@
+---
+
+- name: Install nginx
+  apt:
+    name: nginx
+    state: latest
+
+- name: Disable default site nginx config
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+
+- name: Letsencrypt block
+  block:
+    - name: create letsencrypt directory
+      file: 
+        name: /var/www/letsencrypt
+        state: directory
+
+    - name: Install nginx site for letsencrypt requests
+      template:
+        src: templates/nginx-le.j2
+        dest: /etc/nginx/sites-enabled/http
+
+    - name: Reload nginx to activate letsencrypt site
+      service:
+        name: nginx
+        state: restarted
+
+    - name: Create letsencrypt certificate
+      shell: letsencrypt certonly -n --webroot -w /var/www/letsencrypt -m {{ letsencrypt_email }} --agree-tos -d {{ domain_name }}
+      args:
+        creates: /etc/letsencrypt/live/{{ domain_name }}
+
+    - name: Generate dhparams
+      shell: openssl dhparam -out /etc/nginx/dhparams.pem 2048
+      args:
+        creates: /etc/nginx/dhparams.pem
+
+    - name: Create symbolic link 
+      file:
+        src: "/usr/share/nginx/modules-available/mod-http-passenger.load"
+        dest: "/etc/nginx/modules-enabled/50-mod-http-passenger.conf"
+        state: link
+  
+    - name: Upload site config
+      template:
+        src: rails_config.j2
+        dest: /etc/nginx/sites-available/rails
+
+    - name: Add letsencrypt cronjob for cert renewal
+      cron:
+        name: letsencrypt_renewal
+        special_time: weekly
+        job: letsencrypt --renew certonly -n --webroot -w /var/www/letsencrypt -m {{ letsencrypt_email }} --agree-tos -d {{ domain_name }} && service nginx reload
+  when: letsencrypt_config == True
+  
+#- name: Enable site config
+#  file:
+#    src: /etc/nginx/sites-available/rails
+#    dest: /etc/nginx/sites-enabled/rails
+#    state: link
+
+- name: Upload a main nginx config
+  template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/nginx.conf
+  
+- name: Reload nginx to activate specified site
+  service: 
+    name: nginx
+    state: restarted
+  
+

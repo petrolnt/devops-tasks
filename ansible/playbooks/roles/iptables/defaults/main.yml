@@ -1,0 +1,20 @@
+---
+# defaults file for iptables
+
+tcp_ssh_port: 22
+tcp_mosquitto_port: 1883
+tcp_zabbix_port: 10050
+tcp_vnc_port: 5900
+tcp_nodered_port: 1880
+
+input_policy: "DROP"
+output_policy: "ACCEPT"
+forward_policy: "ACCEPT"
+
+#openvpn in houston
+udp_openvpn_port: 5194
+
+
+allowed_tcp_ports: ["{{tcp_ssh_port}}", "{{tcp_mosquitto_port}}", "{{tcp_zabbix_port}}", "{{tcp_vnc_port}}"]
+
+allowed_udp_ports: []

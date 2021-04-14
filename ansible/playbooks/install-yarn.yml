@@ -1,0 +1,9 @@
+# This role was designed for Yarn installation
+# For configuration please use:
+# ansible-playbook install-yarn.yml -e '{"target":"your-server-ip","ansible_ssh_user":"user"}' --ask-vault-pass
+---
+- name: Install Yarn
+  hosts: '{{target}}'
+
+  roles:
+    - { role: install-yarn, become: yes }

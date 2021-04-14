@@ -1,0 +1,10 @@
+---
+# defaults file for mosquitto-server
+
+mosquitto_packages:
+  - mosquitto
+  - mosquitto-clients
+
+mosquitto_password_file: "/etc/mosquitto/passwd"
+mosquitto_port: "1883"
+mosquitto_allow_anonymous: "false"

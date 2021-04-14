@@ -1,0 +1,4 @@
+---
+# tasks file for mosquitto-server
+- name: Include tasks for install and configure Mosquitto broker
+  include_tasks: install-mosquitto.yml

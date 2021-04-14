@@ -1,0 +1,11 @@
+# This role was designed for set iptables rules
+# Please use:
+# ansible-playbook iptables.yml -e '{"target":"your-server-ip"}' --key-file "/root/.ssh/your_key_file.pem"
+# or
+# ansible-playbook iptables.yml -e '{"target":"your-server-ip"}' --ask-vault-pass
+---
+- name: Install iptables rules
+  hosts: '{{target}}'
+  
+  roles:
+    - { role: iptables, become: yes }

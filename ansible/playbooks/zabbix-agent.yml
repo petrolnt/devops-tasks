@@ -1,0 +1,9 @@
+# This role was designed for install and configure zabbix-agent
+# Please use:
+# ansible-playbook zabbix-agent.yml -e '{"target":"your-server-ip", "zabbix_server":"someip", "tls_settings":"true", "host_name":"somehostname"}' --key-file "/root/.ssh/your_key_file.pem"
+---
+- name: Install Zabbix agent
+  hosts: '{{target}}'
+  
+  roles:
+    - { role: zabbix-agent, become: yes }

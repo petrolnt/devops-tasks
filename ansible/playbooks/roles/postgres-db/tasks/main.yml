@@ -1,0 +1,174 @@
+---
+# tasks file for postgres-db
+
+- name: Import the Postgres repository signing key
+  apt_key:
+    url: "{{ postgres_repo_key }}"
+
+- name: Add a Postgres repository
+  apt_repository:
+    repo: "{{ postgres_repo }}"
+    filename: pgdg
+
+- name: Import the TimescaleDB repository signing key
+  apt_key:
+    url: "{{ timescaledb_repo_key }}"
+    state: present
+
+- name: Add a TimescaleDB repository
+  apt_repository:
+    repo: "{{ timescaledb_repo }}"
+    filename: timescaledb
+
+- name: Installing PostgreSQL 11
+  apt:
+    name: "{{ postgres_release }}"
+    update_cache: yes
+
+
+- name: Install TimescaleDB
+  apt:
+    name: "{{ timescaledb_release }}"
+    state: present
+
+- name: Copy pg_hba.conf
+  copy:
+    src: pg_hba.conf
+    dest: /etc/postgresql/11/main/pg_hba.conf
+    owner: postgres
+    group: postgres
+    mode: 0640
+
+- name: Copy postgresql.conf
+  copy:
+    src: postgresql.conf
+    dest: /etc/postgresql/11/main/postgresql.conf
+    owner: postgres
+    group: postgres
+    mode: 0644
+
+- name: Restart Postresql server
+  service:
+    name: postgresql
+    state: restarted
+
+- name: Install libpq-dev
+  apt:
+    name: libpq-dev
+    state: present
+
+- name: Install python-pip
+  apt:
+    name: python-pip
+    state: present
+
+- name: Install psycopg2 module
+  pip:
+    name: psycopg2
+    state: present
+
+- name: Create voyager_development database
+  postgresql_db:
+    name: voyager_development
+    state: present
+  become: true
+  become_user: postgres
+
+- name: Create voyager_test database
+  postgresql_db:
+    name: voyager_test
+    state: present
+  become: true
+  become_user: postgres
+
+- name: Create sensors database
+  postgresql_db:
+    name: sensors
+    state: present
+  become: true
+  become_user: postgres
+
+- name: Create user voyager_user_test
+  postgresql_user:
+    name: voyager_user_test
+    password: "{{ test_user_password }}"
+    db: voyager_test
+  become: true
+  become_user: postgres
+
+- name: Create user voyager_user
+  postgresql_user:
+    name: voyager_user
+    password: "{{ dev_user_password }}"
+    db: voyager_development
+  become: true
+  become_user: postgres
+
+- name: GRANT ALL PRIVILEGES ON DATABASE voyager_test TO voyager_user_test
+  postgresql_privs:
+    db: voyager_test
+    privs: ALL
+    type: database
+    role: voyager_user_test
+  become: true
+  become_user: postgres
+
+- name: CREATE EXTENSION pg_buffercache
+  postgresql_ext:
+    name:  pg_buffercache
+    db: voyager_development
+  become: true
+  become_user: postgres
+
+- name: GRANT ALL PRIVILEGES ON DATABASE voyager_development TO voyager_user
+  postgresql_privs:
+    db: voyager_development
+    privs: ALL
+    type: database
+    role: voyager_user
+  become: true
+  become_user: postgres
+
+- name: Create user sensors_user
+  postgresql_user:
+    name: sensors_user
+    password: "{{ sensors_user_password }}"
+    db: sensors
+  become: true
+  become_user: postgres
+
+- name: GRANT ALL PRIVILEGES ON DATABASE sensors TO sensors_user;
+  postgresql_privs:
+    db: sensors
+    privs: ALL
+    type: database
+    role: sensors_user
+  become: true
+  become_user: postgres
+
+- name: Create user grafana_user
+  postgresql_user:
+    name: grafana_user
+    password: "{{ grafana_user_password }}"
+    db: sensors
+  become: true
+  become_user: postgres
+
+- name: GRANT ALL PRIVILEGES ON DATABASE sensors TO grafana_user;
+  postgresql_privs:
+    db: sensors
+    privs: ALL
+    type: schema
+    obj: public
+    role: grafana_user
+  become: true
+  become_user: postgres
+
+- name: Adds timescaledb extension to the database sensors
+  postgresql_ext:
+    name: timescaledb
+    db: sensors
+    cascade: yes
+  become: true
+  become_user: postgres
+

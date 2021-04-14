@@ -1,0 +1,15 @@
+# This role was designed for deploing api_server as a DashboardService.service to Voyager server
+# Usage:
+# ansible-playbook deploy-api_server.yml -e '{"target":"your-server-ip","asnible_ssh_user":username}' --key-file "/root/.ssh/your_key_file.pem"
+# or
+# ansible-playbook voyager.yml -e '{"target":"your-server-ip","ansible_ssh_user":username}' --ask-pass 
+---
+
+- name: Deploy DashboardService
+  hosts: '{{target}}'
+  roles:
+    - { role: deploy-api_server, become: yes }
+
+#- name: Deploy DashboardService
+#  roles:
+#    - { role: deploy-api_server }

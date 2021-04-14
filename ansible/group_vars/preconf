@@ -1,0 +1,3 @@
+---
+ansible_user		: pi
+easy-rsa_dir		: /usr/share/easy-rsa

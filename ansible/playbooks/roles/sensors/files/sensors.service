@@ -1,0 +1,12 @@
+[Unit]
+Description=Sensors
+After=multi-user.target
+
+[Service]
+Type=idle
+WorkingDirectory=/opt/sensors
+ExecStart=/usr/bin/python /opt/sensors/send_to_voyager.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

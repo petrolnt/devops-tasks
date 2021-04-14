@@ -1,0 +1,15 @@
+---
+# tasks file for go-server
+
+- name: Include tasks for install and upgrade packages
+  include_tasks: apt-install.yml
+
+- name: Include tasks for install a golang
+  include_tasks: go-install.yml
+
+#- name: Install go packages
+#  include_tasks: go-get.yml
+#  when: go_get.0 is defined
+
+#- name: Install go project
+#  include_tasks: install-project.yml

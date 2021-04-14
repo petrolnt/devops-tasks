@@ -1,0 +1,26 @@
+---
+# handlers file for go-server
+- name: enable nginx
+  systemd:
+    name: nginx
+    enabled: yes
+
+- name: restart nginx
+  systemd:
+    name: nginx
+    state: restarted
+
+- name: stop application
+  systemd:
+    name: '{{ go_app_name }}.service'
+    state: stopped
+  ignore_errors: yes
+
+- name: start application
+  systemd:
+    name: '{{ go_app_name }}.service'
+    state: started
+  ignore_errors: yes
+
+- name: systemd reload
+  systemd: daemon_reload=yes

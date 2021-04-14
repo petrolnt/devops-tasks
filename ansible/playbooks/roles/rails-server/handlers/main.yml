@@ -1,0 +1,10 @@
+---
+# handlers file for rails-server
+
+- name: Restart nginx
+  service: name=nginx state=restarted
+
+- name: Restart Postresql server
+  service:
+    name: postgresql
+    state: restarted

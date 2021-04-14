@@ -1,0 +1,55 @@
+---
+# defaults file for rails-server
+
+with_nginx: true
+with_postgres: false
+replace_env_file: false
+
+#server_env: staging
+
+#letsencrypt_config: True
+#domain_name: config.growcer.com
+letsencrypt_email: hello@growcer.com
+
+prod_db_host: "growcer-config-db.postgres.database.azure.com"
+local_db_host: "127.0.0.1"
+
+db_name: "configurator-db"
+
+postgres_repo: "deb http://apt.postgresql.org/pub/repos/apt/ bionic-pgdg main"
+postgres_repo_key: "https://www.postgresql.org/media/keys/ACCC4CF8.asc"
+postgres_release: "postgresql-11"
+
+ruby_install_url: "https://github.com/postmodern/ruby-install/archive/v0.6.1.tar.gz"
+chruby_url: "https://github.com/postmodern/chruby/archive/v0.3.9.tar.gz"
+
+yarn_repo_key: "https://dl.yarnpkg.com/debian/pubkey.gpg"
+yarn_repo: "deb https://dl.yarnpkg.com/debian/ stable main"
+
+deploy_user: deploy
+home_dir: /home/deploy
+ruby_dependencies: 
+      - gcc
+      - autoconf
+      - bison
+      - build-essential
+      - libssl-dev
+      - libyaml-dev
+      - libreadline6-dev
+      - zlib1g-dev
+      - libncurses5-dev
+      - libffi-dev
+      - libgdm1
+      - libgdbm-dev
+      - sqlite3
+      - libsqlite3-dev
+      - nodejs
+      - yarn
+      - mc
+      - git
+      - libpq-dev
+      - letsencrypt
+      - openssl
+      - python-simplejson
+      - libnginx-mod-http-passenger
+

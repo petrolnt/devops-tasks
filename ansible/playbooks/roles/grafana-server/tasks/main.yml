@@ -1,0 +1,25 @@
+---
+# tasks file for grafana-server
+
+- name: Import the Grafana repository signing key
+  apt_key:
+    url: "{{ grafana_repo_key }}"
+
+- name: Add a Grafana repository
+  apt_repository:
+    repo: "{{ grafana_repo }}"
+    filename: grafana
+
+- name: Install Grafana
+  apt:
+    name: grafana
+    update_cache: true
+
+- name: Enable and start Grafana service
+  service:
+    name: grafana-server
+    state: started
+    enabled: true
+
+- debug:
+    msg: All tasks are completed
