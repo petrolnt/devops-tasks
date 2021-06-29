@@ -20,7 +20,7 @@ oldDate = date - timedelta(days = DAYS_OVER)
 strOldDate = oldDate.strftime('%d_%m_%Y')
 
 currentBackupName = BACKUP_PATH +  DB_NAME + "_"  + strDate + ".zip"
-dumpcmd = "/usr/bin/pg_dump -h " + DB_HOST  + " -U " + DB_USER + " " + DB_NAME + " -f foundation.sql;zip -P x5%Ew9 " + currentBackupName + " foundation.sql;rm -f foundation.sql"
+dumpcmd = "/usr/bin/pg_dump -h " + DB_HOST  + " -U " + DB_USER + " " + DB_NAME + " -f foundation.sql;zip -P MY_PASSWORD " + currentBackupName + " foundation.sql;rm -f foundation.sql"
 retval = os.popen(dumpcmd).read()
 
 mvcmd = "mv " + currentBackupName + " " + S3_FOLDER
