@@ -4,7 +4,7 @@ import os
 from datetime import datetime, time, timedelta, date
 import syslog
 
-DB_HOST = 'foundation-production.cdgpyfyn8vyp.eu-central-1.rds.amazonaws.com'
+DB_HOST = '127.0.0.1'
 DB_USER = 'awsroot'
 DB_NAME = 'foundation'
 BACKUP_PATH = '/root/dump_db_foundation/'
