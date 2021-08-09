@@ -1,0 +1,43 @@
+#!/bin/sh
+# chkconfig: 2345 85 25
+# description:  anycable-go startup script
+# processname: anycable-go
+
+KIND="anycable-rpc"
+start() {
+    echo -n $"Starting $KIND services: "
+    cd /var/app/current && exec sudo -u webapp /bin/bash -lc 'bundle exec anycable' &
+    echo
+    }	
+
+stop() {
+    echo -n $"Shutting down $KIND services: "
+    pkill anycable
+    echo
+    }	
+
+restart() {
+    echo -n $"Restarting $KIND services: "	
+    pkill anycable
+    cd /var/app/current && exec sudo -u webapp /bin/bash -lc 'bundle exec anycable' &
+    echo
+    }	
+
+case "$1" in
+    start)
+	start
+    ;;
+    stop)
+	stop
+    ;;
+    restart)
+	restart
+    ;;
+    status)
+	status -p anycable
+    ;;
+     *)
+    echo $"Usage: $0 {start|stop|restart}"
+    exit 2
+esac
+exit $?
